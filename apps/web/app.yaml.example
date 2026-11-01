@@ -1,0 +1,10 @@
+kind: wasmer.io/App.v0
+owner: YOUR_WASMER_USERNAME
+name: elibrary-ai-web
+package: .
+debug: false
+env:
+  SERVER_ROOT: /public
+  SERVER_FALLBACK_PAGE: /public/index.html
+redirect:
+  force_https: true

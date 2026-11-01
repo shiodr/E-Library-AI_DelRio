@@ -147,3 +147,25 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+# Python, local databases, Android build outputs and signing secrets
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.local/
+wasix-packages/
+apps/web/android/.gradle/
+apps/web/android/**/build/
+apps/web/android/local.properties
+apps/web/android/app/src/main/assets/public/
+apps/web/android/app/src/main/assets/capacitor.config.json
+apps/web/android/app/src/main/assets/capacitor.plugins.json
+apps/web/android/capacitor-cordova-android-plugins/
+*.jks
+*.keystore
+playwright-report/
+test-results/
+apps/web/app.yaml
+backend/app.yaml

@@ -1,0 +1,17 @@
+{
+  "name": "elibrary-ai",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": ["apps/web"],
+  "engines": { "node": ">=22.12.0" },
+  "overrides": { "glob": "14.0.3", "minimatch": "11.0.3" },
+  "scripts": {
+    "dev": "npm run dev --workspace apps/web",
+    "build": "npm run build --workspace apps/web",
+    "test": "npm run test --workspace apps/web",
+    "test:e2e": "npm run test:e2e --workspace apps/web",
+    "android:sync": "npm run android:sync --workspace apps/web",
+    "android:open": "npm run android:open --workspace apps/web",
+    "android:apk": "npm run android:apk --workspace apps/web"
+  }
+}
