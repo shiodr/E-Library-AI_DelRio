@@ -169,3 +169,10 @@ playwright-report/
 test-results/
 apps/web/app.yaml
 backend/app.yaml
+docs/WasmerLogin.md
+
+# Public templates and generated WASIX build output
+!backend/.env.production.example
+backend/.wasmer-build/
+backend/.wasmer-stage-*/
+*.webc

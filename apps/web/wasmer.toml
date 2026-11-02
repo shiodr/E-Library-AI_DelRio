@@ -1,6 +1,6 @@
 # Based on Wasmer's official edge-react-starter. Build from repository root first.
 [package]
-name = "elibrary-ai-web"
+name = "shiodr/elibrary-ai-web"
 version = "0.1.0"
 description = "E-Library AI shared React frontend"
 

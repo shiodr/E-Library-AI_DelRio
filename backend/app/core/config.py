@@ -2,13 +2,15 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, model_validator
+from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy import URL
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=Path(__file__).resolve().parents[2] / ".env", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=Path(__file__).resolve().parents[2] / ".env", extra="ignore", hide_input_in_errors=True
+    )
     app_env: Literal["development", "test", "production"] = "development"
     database_url: str | None = None
     db_host: str | None = None
@@ -18,6 +20,7 @@ class Settings(BaseSettings):
     db_password: str | None = None
     db_ssl: bool = False
     cors_origins: list[str] = [
+        "https://elibrary-ai.wasmer.app",
         "http://localhost:5173",
         "http://127.0.0.1:5173",
         "http://localhost:8000",
@@ -30,6 +33,7 @@ class Settings(BaseSettings):
     session_cookie_samesite: Literal["lax", "strict", "none"] = "lax"
     session_hours: int = Field(default=168, ge=1, le=720)
     guest_session_hours: int = Field(default=24, ge=1, le=168)
+    session_token_secret: SecretStr | None = None
 
     @model_validator(mode="after")
     def check_configuration(self):
@@ -45,6 +49,12 @@ class Settings(BaseSettings):
             raise ValueError("Production requires secure session cookies.")
         if self.session_cookie_samesite == "none" and not self.session_cookie_secure:
             raise ValueError("SameSite=None requires secure cookies.")
+        if self.session_token_secret and not self.session_token_secret.get_secret_value():
+            self.session_token_secret = None
+        if self.session_token_secret and len(self.session_token_secret.get_secret_value()) < 32:
+            raise ValueError("SESSION_TOKEN_SECRET must contain at least 32 random characters.")
+        if self.app_env == "production" and self.session_token_secret is None:
+            raise ValueError("Production requires a random SESSION_TOKEN_SECRET of at least 32 characters.")
         if self.app_env == "production" and any(
             not origin.startswith(("https://", "capacitor://")) for origin in self.cors_origins
         ):

@@ -1,0 +1,44 @@
+# The build script creates .wasmer-build from an explicit source allowlist; no .env is packaged.
+[package]
+version = "0.2.0"
+description = "E-Library AI shared FastAPI backend"
+entrypoint = "serve"
+
+[dependencies]
+"python/python" = "=3.13.19"
+
+[fs]
+"/app" = ".wasmer-build/app"
+"/packages" = ".wasmer-build/packages"
+
+[[command]]
+name = "serve"
+module = "python/python:python"
+runner = "wasi"
+[command.annotations.wasi]
+main-args = ["/app/main.py"]
+env = ["PYTHONPATH=/packages:/app", "PYTHONUNBUFFERED=1"]
+
+[[command]]
+name = "migrate"
+module = "python/python:python"
+runner = "wasi"
+[command.annotations.wasi]
+main-args = ["-m", "alembic", "-c", "/app/alembic.ini", "upgrade", "head"]
+env = ["PYTHONPATH=/packages:/app", "PYTHONUNBUFFERED=1"]
+
+[[command]]
+name = "seed"
+module = "python/python:python"
+runner = "wasi"
+[command.annotations.wasi]
+main-args = ["-m", "app.services.seed"]
+env = ["PYTHONPATH=/packages:/app", "PYTHONUNBUFFERED=1"]
+
+[[command]]
+name = "check"
+module = "python/python:python"
+runner = "wasi"
+[command.annotations.wasi]
+main-args = ["/app/check_runtime.py"]
+env = ["PYTHONPATH=/packages:/app", "PYTHONUNBUFFERED=1"]

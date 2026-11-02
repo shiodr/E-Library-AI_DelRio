@@ -38,22 +38,26 @@ Rollback is `python -m alembic downgrade base`. It drops all five tables and the
 use only on a disposable database, or after a verified backup. The test suite proves
 both downgrade and upgrade on a dedicated `_test` database.
 
-## Phase 2 download transaction (planned, not implemented)
+## Implemented download tracking transaction
 
-The API must derive ownership from the validated session, never from a supplied user ID.
+The API derives ownership from the validated session, never from a supplied user ID.
 For registered accounts, lock the user row with `SELECT ... FOR UPDATE`; for guests,
 lock the guest session row and verify `session_type == 'guest'`. Inside that same
 transaction, count distinct downloaded books, return an existing record idempotently,
 and reject a new record after five guest books or ten registered books. The unique
 constraints prevent duplicates; row locks prevent simultaneous requests from exceeding
-the allowance. Verify source/license eligibility before issuing any file URL.
+the allowance. Session expiry is rechecked after waiting for the account lock.
+Tracking records an approved request; file storage/streaming and source/license checks
+for future hosted files must be added before issuing controlled file URLs.
 
 Limits apply per guest session and per registered account across devices. Repeated
 downloads of one book will not consume another slot. Guest session reset can reset
 its allowance by design; abuse prevention and any stronger policy require a separate
-product decision. No Phase 1 endpoint currently issues downloads or promises enforcement.
+product decision. `POST /api/v1/downloads` enforces these limits on tracking requests;
+it does not claim to control access to external public-domain source websites.
 
-Favorites and future AI saves must share the same authorized service, ownership rules,
+Favorites now use the same registered-account locks for concurrent add/delete operations.
+Future AI saves must share these authorized services, ownership rules,
 and database transactions as normal UI actions. My Library will initially represent
 saved books through `favorites`; introduce a separate `library_items` table only if
 future requirements distinguish favorites from saved-library membership.

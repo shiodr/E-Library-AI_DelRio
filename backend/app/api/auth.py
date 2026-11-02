@@ -18,6 +18,7 @@ from app.services.auth import (
     require_session,
     verify_password,
 )
+from app.services.library import lock_session
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 Database = Annotated[DBSession, Depends(get_db)]
@@ -43,6 +44,8 @@ def login(data: LoginInput, request: Request, response: Response, db: Database):
         raise HTTPException(401, "Email or password is incorrect.")
     if hasher.check_needs_rehash(user.password_hash):
         user.password_hash = hasher.hash(data.password)
+        # Release the user-row write lock before session rotation acquires a session lock.
+        db.commit()
     return issue_session(db, request, response, user, data.client)
 
 
@@ -60,7 +63,7 @@ def me(request: Request, db: Database):
 def logout(request: Request, db: Database):
     from datetime import datetime
 
-    session = require_session(request, db)
+    session = lock_session(db, require_session(request, db))
     session.revoked_at = datetime.now(UTC)
     db.commit()
     settings = get_settings()

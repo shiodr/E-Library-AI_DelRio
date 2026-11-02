@@ -46,6 +46,9 @@ class ProfileOutput(BaseModel):
     expires_at: datetime
     user: UserOutput | None
     planned_download_limit: int
+    download_limit: int
+    downloads_used: int
+    downloads_remaining: int
 
 
 class AuthOutput(ProfileOutput):

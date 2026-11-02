@@ -1,4 +1,4 @@
-# Deployment preparation only. Resolve the WASIX dependency gate in docs/deployment.md first.
+# First run scripts/build_wasmer.py locally. Deploy from backend/, not the monorepo root.
 kind: wasmer.io/App.v0
 owner: YOUR_WASMER_USERNAME
 name: elibrary-ai-api
@@ -8,7 +8,7 @@ env:
   APP_ENV: production
   SESSION_COOKIE_SECURE: "true"
   SESSION_COOKIE_SAMESITE: none
-  CORS_ORIGINS: '["https://YOUR_WEB_HOST", "https://localhost", "capacitor://localhost"]'
+  CORS_ORIGINS: '["https://elibrary-ai.wasmer.app", "https://localhost", "capacitor://localhost"]'
 capabilities:
   database:
     engine: postgres

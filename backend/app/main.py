@@ -6,7 +6,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
-from app.api import auth, books
+from app.api import auth, books, library
 from app.core.config import get_settings
 from app.core.database import engine
 
@@ -16,7 +16,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization"],
 )
 
@@ -35,7 +35,7 @@ async def browser_security(request: Request, call_next):
     response = await call_next(request)
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-    if request.url.path.startswith("/api/v1/auth"):
+    if request.url.path.startswith(("/api/v1/auth", "/api/v1/favorites", "/api/v1/downloads")):
         response.headers["Cache-Control"] = "no-store"
     return response
 
@@ -47,6 +47,7 @@ async def database_error(request: Request, error: SQLAlchemyError):
     return JSONResponse(status_code=503, content={"detail": "Library service unavailable. Please try again."})
 
 
+@app.get("/health", tags=["Health"])
 @app.get("/api/v1/health", tags=["Health"])
 def health():
     with engine.connect() as connection:
@@ -56,3 +57,4 @@ def health():
 
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(books.router, prefix="/api/v1")
+app.include_router(library.router, prefix="/api/v1")

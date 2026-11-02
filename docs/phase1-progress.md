@@ -1,4 +1,4 @@
-# Phase 1 progress — November 1, 2026
+# Phase 1 progress — updated November 2, 2026
 
 Phase 1 deadline: November 7. Phase 2: November 21. Final: December 5, 2026.
 
@@ -19,10 +19,14 @@ Phase 1 deadline: November 7. Phase 2: November 21. Final: December 5, 2026.
   Internet permission, release cleartext prohibition, native memory-only sessions,
   icon/splash placeholders, and cross-platform build scripts.
 - Documentation, environment examples, Compose PostgreSQL, dependency locks, and CI workflow.
+- Backend favorites and download tracking, with account/session ownership, atomic five/ten-book
+  quotas, idempotent repeats, and usage fields that preserve frontend compatibility.
+- Backend-only HMAC session secret, legacy session/hash compatibility, root `/health`,
+  deployed-website CORS, and a locally exercised WASIX package/deployment workflow.
 
 ## Executed proof
 
-Backend: **16 tests passed** against PostgreSQL, including migration rollback/reapply.
+Backend: **31 tests passed** against PostgreSQL, including migration rollback/reapply and quota races.
 Frontend: **8 tests passed**. Browser: **6 tests passed**, across desktop/mobile Chrome.
 Production TypeScript/Vite build passed. Web registration followed by Android-style
 bearer authentication returned the same database user ID. See [testing](testing.md)
@@ -34,9 +38,9 @@ for exact scope, warnings, versions, and commands.
   configure the documented SDK/JDK, build, and test on an actual device.
 - Reachable HTTPS backend: not deployed. Native build configuration must be set to
   that backend before APK synchronization. No default localhost API can pass native checks.
-- Wasmer: registry-only resolution failed at FastAPI; combined-index resolution failed
-  at native Pydantic core. Resolve the WASIX compatibility
-  gate or use a standard Python backend host. Account-backed publication has not occurred.
+- Wasmer native-wheel compatibility is resolved with a separate WASIX lock. The package
+  serves HTTP requests and passes local authentication/library smoke tests. Production
+  backend publication and database setup still require the user's account/credentials.
 - Compose and Dockerfile execution: files supplied; Docker was not installed here.
 - GitHub CI: workflow supplied; it has not run on GitHub. Existing Git repository is
   preserved; changes are uncommitted, and no remote push was made.
@@ -47,6 +51,6 @@ open until native compilation and platform-specific connectivity are verified.
 
 ## Explicitly planned
 
-No full 200-book catalog, downloads, allowance enforcement, persistent favorites,
-saved-library mutations, or live Agentic AI is claimed. The interface labels these
-features as later-phase work. No paid AI calls were made.
+The full 200-book catalog, hosted file delivery, library/favorite UI wiring, and live
+Agentic AI remain planned. Backend favorites, request tracking, and allowance enforcement
+are implemented; the frontend's existing placeholders remain unchanged. No paid AI calls were made.

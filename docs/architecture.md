@@ -38,9 +38,11 @@ No SQLite implementation or mock authentication exists.
 
 ## Authentication and storage
 
-Passwords use Argon2id with 64 MiB memory, three iterations, and parallelism four.
+Passwords use Argon2id with 64 MiB memory, three iterations, and parallelism one for WASIX compatibility.
 A random 32-byte URL-safe session token authenticates requests. The database stores
-only its SHA-256 digest. User sessions default to seven days; guest sessions default
+only its digest. Configured sessions use environment-keyed HMAC-SHA256 and a `v1.`
+token prefix; legacy unprefixed SHA-256 sessions remain valid until expiry/revocation.
+Production requires a backend-only `SESSION_TOKEN_SECRET`. User sessions default to seven days; guest sessions default
 to one day. Every protected request checks database expiry and revocation.
 Logout records `revoked_at`; replaying that token fails. Sign-in/registration rotates
 the current session, including a guest session, without changing other devices.
@@ -74,6 +76,12 @@ motion. Desktop has a sidebar; mobile has bottom navigation and safe-area paddin
 Light/dark themes use shared CSS variables. There are eight seeded books, four
 categories, server search/filtering, and bounded pagination ready for a larger catalog.
 
-My Library, Favorites, downloads, and the embedded assistant are explicit Phase 2
+My Library, Favorites, downloads, and the embedded assistant UI are explicit Phase 2
 empty/preview states. No fake chat messages, successful saves, download counters,
 or claim of a complete 200-book catalog appears in the application.
+
+The backend now exposes authorized favorites and download tracking independently of
+those unchanged UI placeholders. `services/library.py` derives ownership from verified
+sessions and serializes writes using PostgreSQL session/account row locks. Every device
+shares an account's ten-book quota; each guest session has five slots. Expiry is checked
+after lock waits. Future agent tools can reuse these services without separate quota logic.

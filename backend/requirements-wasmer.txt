@@ -1,0 +1,16 @@
+# WASIX-native replacements are isolated from the macOS/Windows/Linux dependency lock.
+--index-url https://python-registry.wasmer.app/all/simple/
+--extra-index-url https://pypi.org/simple/
+-c constraints-wasmer.txt
+fastapi==0.162.0
+uvicorn==0.54.0
+pydantic==2.13.4+wasix.2
+pydantic-core==2.46.4+wasix.3
+pydantic-settings==2.16.2
+email-validator==2.3.0
+SQLAlchemy==2.0.55
+alembic==1.20.1
+argon2-cffi==25.1.0
+argon2-cffi-bindings==25.1.0+wasix.2
+cffi==2.1.0+wasix.3
+pg8000==1.31.6

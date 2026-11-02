@@ -5,8 +5,9 @@ IPT102 — Integrative Programming and Emerging Technologies 2.
 
 Phase 1 provides a working React application, a generated Capacitor Android project,
 and one FastAPI/PostgreSQL backend. Authentication and the eight-book starter catalog
-use the real database. AI, saving, favorites, downloads, and the full 200-book catalog
-are planned features, visibly labeled in the interface.
+use the real database. The backend now supports saved favorites and download tracking
+with enforced five-book guest and ten-book account limits. Their frontend screens,
+file delivery, AI, and the full 200-book catalog remain planned features.
 
 ## Requirements
 
@@ -132,12 +133,14 @@ contract against the same database. Physical-device testing remains pending.
 | `.github/workflows/ci.yml` | PostgreSQL-backed backend tests, frontend tests, production build |
 
 - [Architecture](docs/architecture.md), [database design](docs/database-design.md), [API reference](docs/api-reference.md)
-- [AI architecture](docs/ai-architecture.md), [deployment and Wasmer gate](docs/deployment.md)
+- [Backend setup and endpoints](backend/README.md), [AI architecture](docs/ai-architecture.md), [Wasmer deployment](docs/deployment.md)
 - [Testing](docs/testing.md), [actual progress](docs/phase1-progress.md)
 - [Five-slide presentation](docs/phase1-presentation.md), [Phase 2 roadmap](docs/phase2-roadmap.md)
 
-Wasmer configuration is prepared from current official documentation. The WASIX
-registry does not provide the locked Pydantic core wheel, even with PyPI enabled. Cloud deployment is
-pending that compatibility gate and your Wasmer account; no deployment is claimed.
+The backend's separate WASIX dependency lock and local-build deployment path now run
+successfully in Wasmer, including real PostgreSQL/authentication/library HTTP checks.
+Cloud backend publication still needs your account and production database settings.
+The existing deployed frontend remains unchanged; set its production API URL and
+rebuild after publishing the backend.
 
 Deadlines: Phase 1 November 7, Phase 2 November 21, final December 5, 2026.

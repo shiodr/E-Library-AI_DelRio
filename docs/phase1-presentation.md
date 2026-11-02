@@ -50,9 +50,9 @@ The assistant preview does not generate fake responses.”
 ## Slide 5 — Development Progress
 
 - Working frontend/backend and PostgreSQL migration/seed.
-- 16 backend tests, 8 frontend tests, and 6 desktop/mobile browser tests passed.
+- 31 backend tests, 8 frontend tests, and 6 desktop/mobile browser tests passed.
 - Android project generated; APK compilation blocked by missing local JDK/SDK.
-- Wasmer configuration prepared; its locked-dependency compatibility gate is unresolved.
+- Wasmer backend package tested locally with real PostgreSQL and HTTP requests; production deployment remains pending.
 - Next: physical-device build, reachable HTTPS API, catalog expansion, authorized
   saving/download limits, and embedded AI tools.
 

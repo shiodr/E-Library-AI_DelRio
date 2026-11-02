@@ -123,3 +123,20 @@ def test_cookie_mutation_requires_origin(client):
 def test_invalid_bearer_never_falls_back_to_cookie(client):
     client.post("/api/v1/auth/guest", json={})
     assert client.get("/api/v1/auth/me", headers={"Authorization": "Bearer invalid"}).status_code == 401
+
+
+def test_login_upgrades_old_password_hash_without_changing_identity(client, db, account):
+    from argon2 import PasswordHasher
+
+    from app.services.auth import hasher
+
+    identity = client.post("/api/v1/auth/register", json=account).json()["user"]["id"]
+    user = db.scalar(select(User))
+    user.password_hash = PasswordHasher(time_cost=1).hash(account["password"])
+    db.commit()
+    result = client.post(
+        "/api/v1/auth/login", json={"email": account["email"], "password": account["password"]}
+    )
+    assert result.status_code == 200 and result.json()["user"]["id"] == identity
+    db.refresh(user)
+    assert not hasher.check_needs_rehash(user.password_hash)

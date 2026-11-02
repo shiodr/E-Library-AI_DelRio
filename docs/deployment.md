@@ -1,97 +1,182 @@
-# Deployment preparation and Wasmer compatibility gate
+# Wasmer deployment — shared FastAPI backend
 
-No cloud app or database has been provisioned. No account credentials were assumed.
-These configuration examples prepare a deployment; they are not a claim that this
-exact backend has run in Wasmer's WASIX runtime.
+The existing frontend is `https://elibrary-ai.wasmer.app`. Deploy this backend as
+a separate Wasmer application, for example `elibrary-ai-api`. React and Android
+then use its public HTTPS `/api/v1` URL. No frontend redesign is required.
 
-## Current support and observed limitation
+## Verified locally on November 2, 2026
 
-Official Wasmer documentation lists FastAPI/Uvicorn auto-detection, static React
-hosting, PostgreSQL provisioning, and environment credentials. The official FastAPI
-template uses `main:app`; `backend/main.py` exposes that entry point. The PostgreSQL
-configuration explicitly uses `engine: postgres` because an omitted engine defaults
-to MySQL. `config.py` supports an external `DATABASE_URL`, or Wasmer's injected
-`DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USERNAME`, and `DB_PASSWORD`.
+Wasmer CLI 7.5.0 ran the packaged backend, connected to PostgreSQL, verified Argon2id,
+and served real HTTP authentication, favorites, and quota requests. The earlier
+native-wheel blocker is resolved with a separate WASIX lock: Pydantic 2.13.4+wasix.2,
+core 2.46.4+wasix.3, Argon2 bindings 25.1.0+wasix.2, and CFFI 2.1.0+wasix.3.
+The normal macOS/Windows/Linux dependency lock remains unchanged.
 
-An actual binary-only dependency resolution check was executed against the official
-WASIX registry for Python 3.13:
+Argon2id retains 64 MiB and three passes, with one lane for WebAssembly. Existing
+four-lane hashes also verified in this runtime. The manifest pins runtime package
+`python/python@=3.13.19`; its executable reports CPython 3.13.15. The diagnostic
+reports actual versions without printing credentials.
+
+Cloud backend publication and a production database have not been performed in this
+task. Local WASIX proof does not establish production networking, provider credentials,
+account permissions, or browser cookie behavior at the final deployed origins.
+
+## 1. Configure production PostgreSQL and backend secrets
+
+Choose Wasmer-managed PostgreSQL or an external provider. The commands below assume
+a database address reachable from your terminal. An external TLS-enabled PostgreSQL
+endpoint works for this flow. Never use SQLite or an ephemeral Edge filesystem DB.
+
+From the monorepo root, copy the template only if the destination does not exist:
 
 ```bash
-backend/.venv/bin/python -m pip download -r backend/requirements.txt \
-  --index-url https://python-registry.wasmer.app/all/simple/ \
-  --platform wasix_wasm32 --python-version 3.13 --only-binary=:all: \
-  --dest .local/wasix-wheels
+cp backend/.env.production.example backend/.env.production
+backend/.venv/bin/python -c "import secrets; print(secrets.token_urlsafe(48))"
 ```
 
-It failed because `fastapi==0.162.0` is absent; the registry reported
-`0.115.14+wasix.2` and `0.139.0+wasix.2`. This proves the current lock is not directly
-deployable through that registry. It does not prove that simply changing FastAPI
-resolves Pydantic core, Argon2 bindings, CFFI, and every transitive dependency.
-Do not replace Argon2id with a weaker hash or skip its native import to force deployment.
+Put the generated value in `SESSION_TOKEN_SECRET`. Populate the remaining settings:
 
-A separate availability probe successfully downloaded WASIX Argon2 bindings
-`25.1.0+wasix.2`, CFFI `2.1.0+wasix.3`, and their parser dependency. The local lock
-uses Argon2 bindings `26.1.0`. This probe demonstrates that a supported Argon2 runtime
-is plausible; it does not validate the entire application or its current lock.
+```dotenv
+APP_ENV=production
+DATABASE_URL=postgresql+pg8000://USERNAME:PASSWORD@DATABASE_HOST:5432/DATABASE
+DB_SSL=true
+SESSION_TOKEN_SECRET=YOUR_RANDOM_GENERATED_VALUE
+SESSION_COOKIE_SECURE=true
+SESSION_COOKIE_SAMESITE=none
+CORS_ORIGINS=["https://elibrary-ai.wasmer.app","https://localhost","capacitor://localhost"]
+```
 
-The combined-index check was also executed by adding
-`--extra-index-url https://pypi.org/simple/` to the command above. Pure Python FastAPI
-resolved from PyPI, but the locked `pydantic-core==2.50.2` had no matching WASIX
-distribution. That native dependency is a confirmed blocker even with both indexes.
+URL-encode reserved characters in database usernames/passwords, or use the separate
+`DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USERNAME`, and `DB_PASSWORD` variables instead.
+All backend instances must share the same secret. Keep it out of `VITE_*`.
 
-Before backend deployment, obtain a supported, security-reviewed WASIX dependency
-lock, rerun resolution, and test imports, Argon2id hash/verify, PostgreSQL TLS/connectivity,
-health, and the full authentication suite inside that runtime. If this package set
-cannot run there, use a standard Python HTTPS host for the shared FastAPI backend
-and Wasmer for the frontend. The included Dockerfile is a portable fallback artifact;
-it has not been built locally because Docker is absent. Wasmer is not assumed to run
-this Dockerfile as a native Linux container.
+`SameSite=None` supports separate HTTPS frontend/API sites. Some browsers still block
+third-party cookies; verify the actual pair. Same-site custom domains are preferable
+when that applies. Android bearer sessions do not rely on browser cookies. Add the
+API's own exact HTTPS origin to CORS if using authenticated mutations through `/docs`.
 
-## Static frontend procedure
+## 2. Build locally for WASIX
 
-1. Install Wasmer and log into your own account with `wasmer login`.
-2. Set the reachable HTTPS API in `apps/web/.env.production`.
-3. Run `npm ci` and `npm run build` from the monorepo root.
-4. Copy `apps/web/app.yaml.example` to `apps/web/app.yaml`, fill in owner/app name,
-   and set the package name in `wasmer.toml` to `YOUR_USERNAME/elibrary-ai-web`.
-5. From `apps/web`, run `wasmer deploy` and follow its package-publish prompts.
-6. Open the returned HTTPS URL and directly reload `/app/explore` to verify SPA fallback.
+Install Python dependencies as described in [backend setup](../backend/README.md).
+Install Wasmer and log into your account:
 
-`wasmer.toml` follows the official React starter, mounts `dist` at `/public`, and
-uses the static-web-server package. `SERVER_ROOT` and `SERVER_FALLBACK_PAGE` configure
-React Router fallback. The account/CLI deployment and fallback behavior still need
-runtime verification; no installed Wasmer CLI or cloud deployment was available here.
+```bash
+brew install wasmer
+wasmer login
+```
 
-## Backend procedure after the compatibility gate passes
+For Windows/Linux, use the official Wasmer installer. From the monorepo root:
 
-1. Import the `backend` directory into Wasmer using the FastAPI template or Git
-   deployment flow; use `main:app` and Python 3.13. Keep `.env` out of the upload.
-2. Generate the Python package/runtime configuration through the supported template;
-   `backend/app.yaml.example` is application configuration, not a compiled Python package.
-3. Fill in owner/name and retain the generated runtime/package reference. Enable its
-   PostgreSQL capability, or configure an external PostgreSQL database with verified TLS.
-4. Configure backend secrets through the Wasmer dashboard: database credentials,
-   `APP_ENV=production`, `SESSION_COOKIE_SECURE=true`, and exact trusted CORS origins.
-   For separate sites use `SESSION_COOKIE_SAMESITE=none`; prefer same-site custom domains.
-5. Run `python -m alembic upgrade head` and `python -m app.services.seed` once against
-   that production database from a trusted environment. Do not run test rollback there.
-6. Deploy and check `/api/v1/health`, `/docs`, registration, guest creation, profile,
-   logout/replay, and native bearer login over HTTPS.
-7. Build both website and Android with that same final API URL. Verify web cookies
-   under the actual browser privacy settings and complete the physical-device checklist.
+```bash
+backend/.venv/bin/python backend/scripts/build_wasmer.py
+wasmer package build --check backend
+```
 
-Never store API secrets in `VITE_*` variables: those are public build inputs.
-Do not bundle database credentials, keystores, local data directories, or `.env` files.
-Production PostgreSQL is external or managed, never SQLite or an Edge filesystem database.
-Use backups before schema changes. Public authentication also needs deployment-level
-rate limiting and operational monitoring before unrestricted rollout.
+Windows replaces the interpreter path with `backend\.venv\Scripts\python.exe`.
+The script installs binary-only wheels into ignored `backend/.wasmer-build` and
+copies only application/migration source and entry points. Local databases, frontend,
+environment files, and virtual environments are excluded. No Node/npm build is needed.
 
-## Official references checked November 1, 2026
+`backend/wasmer.toml` defines `serve` (default), `migrate`, `seed`, and `check` commands.
+The package is intentionally unnamed; Wasmer supports unnamed packages, so no package
+namespace edit is required.
 
-- [Supported frameworks and database environment variables](https://docs.wasmer.io/edge/learn/supported-frameworks-and-languages/)
-- [FastAPI starter and entry point](https://wasmer.io/templates/fastapi-starter)
-- [Application configuration and PostgreSQL engine](https://docs.wasmer.io/edge/configuration/)
-- [Managed databases](https://wasmer-docs.wasmer.app/edge/learn/databases/)
-- [React static-site guide](https://docs.wasmer.io/edge/guides/react-static-site/)
-- [Official React starter configuration](https://github.com/wasmerio/edge-react-starter)
-- [WASIX Python wheel installation](https://www.wasix.org/docs/language-guide/python/installation/)
+## 3. Apply migrations and seed the production database
+
+Run the packaged commands using the ignored production environment file:
+
+```bash
+wasmer run backend --entrypoint migrate --net --env-file backend/.env.production
+wasmer run backend --entrypoint seed --net --env-file backend/.env.production
+wasmer run backend --entrypoint check --net --env-file backend/.env.production
+```
+
+`migrate` applies Alembic `upgrade head`. `seed` idempotently adds eight sample metadata
+records. `check` verifies imports, hashing, PostgreSQL, and the migration revision.
+The server does not migrate automatically on each Edge cold start. Never run test
+rollback commands against production.
+
+For Wasmer-managed PostgreSQL, `capabilities.database.engine: postgres` provisions it
+and injects `DB_*` credentials. Remove the placeholder `DATABASE_URL` so those values
+take effect. Configure TLS according to the provider. Private managed addresses need
+a trusted migration environment with network access; use the platform access available
+for your plan or an externally reachable PostgreSQL endpoint. Local Wasmer is not
+assumed to resolve private cloud DNS. Do not assume a paid SSH feature is available.
+
+## 4. Deploy the API as a separate application
+
+```bash
+cp backend/app.yaml.example backend/app.yaml
+```
+
+Set `owner` to your Wasmer username and select a unique API application `name`.
+Do not copy the frontend's existing `app_id`. For external PostgreSQL, remove the
+`capabilities.database` block to avoid provisioning an unused managed database.
+
+Change into the backend directory before deploying:
+
+```bash
+cd backend
+wasmer deploy --env-file .env.production
+```
+
+Use the local package flow. Do not select Node Static or send the entire monorepo
+to an automatic framework detector. `--env-file` supplies runtime settings; the secret
+file is not mounted inside the published package. Follow any package publication
+prompts. Wasmer returns the actual backend HTTPS URL.
+
+```bash
+curl --fail https://YOUR_API_HOST/health
+curl --fail https://YOUR_API_HOST/api/v1/books
+```
+
+Health queries PostgreSQL. `/docs` exposes the API schema. For an explicit HTTP test
+that creates a uniquely named account and guest records:
+
+```bash
+.venv/bin/python scripts/smoke_api.py --url https://YOUR_API_HOST
+```
+
+Verify real website cookies, native bearer access, guest limits, and logout at the
+final deployed host before handover.
+
+## 5. Connect the existing frontend and Android
+
+Set `apps/web/.env.production`:
+
+```dotenv
+VITE_API_BASE_URL=https://YOUR_API_HOST/api/v1
+```
+
+Rebuild and redeploy the existing website from the monorepo root (run `cd ..`
+first if your terminal is still inside `backend`):
+
+```bash
+npm run build
+wasmer deploy --dir apps/web
+```
+
+Synchronize Android with `npm run android:sync`, using the same environment. Vite bakes
+the API URL into assets; changing hosting environment values after compilation does
+not rewrite an existing bundle. Database passwords and authentication secrets never
+belong in this public URL or any other frontend variable.
+
+## Maintenance and verification limits
+
+Rebuild the WASIX package after backend source changes. Test schema changes on a
+separate `_test` database and back up production before migrations. Keep secure cookies
+and restricted origins enabled; add deployment rate limits/monitoring before an
+unrestricted public rollout. Tracking/quota endpoints are implemented; file streaming
+and the frontend's future library buttons remain separate work.
+
+The Dockerfile targets a conventional Python container host. This Wasmer workflow
+uses the WASIX manifest, not a native Docker container. Docker was unavailable locally;
+no Docker build or production cloud deployment is claimed.
+
+## Official references checked November 2, 2026
+
+- [Manifest and unnamed packages](https://docs.wasmer.io/registry/manifest/)
+- [Deployment CLI](https://docs.wasmer.io/edge/cli/)
+- [Application/database configuration](https://docs.wasmer.io/edge/configuration/)
+- [Python frameworks and database environment variables](https://docs.wasmer.io/edge/learn/supported-frameworks-and-languages/)
+- [WASIX Python wheels](https://www.wasix.org/docs/language-guide/python/installation/)

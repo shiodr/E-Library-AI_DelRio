@@ -15,8 +15,11 @@ os.environ["DATABASE_URL"] = test_url
 os.environ["APP_ENV"] = "test"
 os.environ["SESSION_COOKIE_SECURE"] = "false"
 os.environ["SESSION_COOKIE_SAMESITE"] = "lax"
+os.environ["SESSION_TOKEN_SECRET"] = "test-only-secret-never-use-in-production-123456789"
 os.environ["DB_SSL"] = os.environ.get("TEST_DB_SSL", "false")
-os.environ["CORS_ORIGINS"] = '["http://localhost:5173", "https://localhost"]'
+os.environ["CORS_ORIGINS"] = (
+    '["http://localhost:5173", "http://127.0.0.1:5173", "https://elibrary-ai.wasmer.app", "https://localhost", "capacitor://localhost"]'
+)
 
 
 @pytest.fixture(scope="session", autouse=True)

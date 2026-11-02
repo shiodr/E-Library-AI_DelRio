@@ -1,4 +1,5 @@
 import hashlib
+import hmac
 import secrets
 from datetime import UTC, datetime, timedelta
 
@@ -11,13 +12,18 @@ from sqlalchemy.orm import Session as DBSession
 from app.core.config import get_settings
 from app.models import Session, User
 from app.schemas.auth import AuthOutput, ProfileOutput, UserOutput
+from app.services.library import download_allowance
 
-hasher = PasswordHasher(time_cost=3, memory_cost=65536, parallelism=4, type=Type.ID)
+# A single lane works in both native Python and WASIX; retain the 64 MiB / three-pass cost.
+hasher = PasswordHasher(time_cost=3, memory_cost=65536, parallelism=1, type=Type.ID)
 # Equal-cost password verification also applies when an email does not exist.
 dummy_hash = hasher.hash(secrets.token_urlsafe(32))
 
 
 def token_hash(token: str) -> str:
+    secret = get_settings().session_token_secret
+    if token.startswith("v1.") and secret:
+        return hmac.new(secret.get_secret_value().encode(), token.encode(), hashlib.sha256).hexdigest()
     return hashlib.sha256(token.encode()).hexdigest()
 
 
@@ -31,6 +37,8 @@ def request_token(request: Request) -> str | None:
 
 def find_session(db: DBSession, token: str | None) -> Session | None:
     if not token or len(token) > 256:
+        return None
+    if token.startswith("v1.") and not get_settings().session_token_secret:
         return None
     return db.scalar(
         select(Session).where(
@@ -52,11 +60,15 @@ def require_session(request: Request, db: DBSession) -> Session:
 
 def profile(db: DBSession, session: Session) -> ProfileOutput:
     user = db.get(User, session.user_id) if session.user_id else None
+    allowance = download_allowance(db, session)
     return ProfileOutput(
         session_type=session.session_type,
         expires_at=session.expires_at,
         user=UserOutput.model_validate(user) if user else None,
-        planned_download_limit=5 if session.session_type == "guest" else 10,
+        planned_download_limit=allowance.limit,
+        download_limit=allowance.limit,
+        downloads_used=allowance.used,
+        downloads_remaining=allowance.remaining,
     )
 
 
@@ -74,7 +86,7 @@ def issue_session(
     previous = find_session(db, request_token(request))
     if previous:
         previous.revoked_at = datetime.now(UTC)
-    token = secrets.token_urlsafe(32)
+    token = ("v1." if settings.session_token_secret else "") + secrets.token_urlsafe(32)
     hours = settings.session_hours if user else settings.guest_session_hours
     session = Session(
         user_id=user.id if user else None,
