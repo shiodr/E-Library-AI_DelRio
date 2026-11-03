@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     db_username: str | None = None
     db_password: str | None = None
     db_ssl: bool = False
+    db_ssl_verify: bool = True
     cors_origins: list[str] = [
         "https://elibrary-ai.wasmer.app",
         "http://localhost:5173",
@@ -43,6 +44,8 @@ class Settings(BaseSettings):
             raise ValueError("Set DATABASE_URL or all managed PostgreSQL DB_* credentials.")
         if self.database_url and not self.database_url.startswith("postgresql+pg8000://"):
             raise ValueError("DATABASE_URL must use postgresql+pg8000://.")
+        if not self.db_ssl_verify and not self.db_ssl:
+            raise ValueError("DB_SSL_VERIFY=false requires DB_SSL=true.")
         if "*" in self.cors_origins:
             raise ValueError("CORS_ORIGINS must contain explicit trusted origins.")
         if self.app_env == "production" and not self.session_cookie_secure:

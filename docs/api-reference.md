@@ -2,6 +2,7 @@
 
 Base URL: `http://127.0.0.1:8000/api/v1` locally, reachable HTTPS in production.
 Authoritative generated schemas: `/openapi.json`; interactive documentation: `/docs`.
+`GET /` returns HTTP 200 with service information and links to `/health` and `/docs`.
 
 | Method and endpoint | Access | Behavior |
 | --- | --- | --- |

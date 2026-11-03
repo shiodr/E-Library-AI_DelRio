@@ -17,9 +17,17 @@ four-lane hashes also verified in this runtime. The manifest pins runtime packag
 `python/python@=3.13.19`; its executable reports CPython 3.13.15. The diagnostic
 reports actual versions without printing credentials.
 
-Cloud backend publication and a production database have not been performed in this
-task. Local WASIX proof does not establish production networking, provider credentials,
-account permissions, or browser cookie behavior at the final deployed origins.
+On November 3, 2026, the packaged migration, idempotent eight-book seed, and runtime
+check succeeded against the user-created Wasmer-managed PostgreSQL database. The
+runtime confirmed PostgreSQL connectivity, Argon2id, and migration revision `0001`.
+The dotenv CORS JSON requires outer single quotes, and Alembic uses the same TLS
+settings as the API. Eleven focused configuration/migration regression tests passed.
+
+The backend was deployed on November 3, 2026 at
+`https://backend-shiodr.wasmer.app`. Public checks returned HTTP 200 for `/`,
+`/health`, `/docs`, and `/api/v1/books`; unknown paths still return 404. Root service
+information supports Wasmer's deployment check while `/health` verifies PostgreSQL.
+Browser cookie behavior at the final deployed frontend/API origins remains to be checked.
 
 ## 1. Configure production PostgreSQL and backend secrets
 
@@ -40,15 +48,33 @@ Put the generated value in `SESSION_TOKEN_SECRET`. Populate the remaining settin
 APP_ENV=production
 DATABASE_URL=postgresql+pg8000://USERNAME:PASSWORD@DATABASE_HOST:5432/DATABASE
 DB_SSL=true
+DB_SSL_VERIFY=true
 SESSION_TOKEN_SECRET=YOUR_RANDOM_GENERATED_VALUE
 SESSION_COOKIE_SECURE=true
 SESSION_COOKIE_SAMESITE=none
-CORS_ORIGINS=["https://elibrary-ai.wasmer.app","https://localhost","capacitor://localhost"]
+CORS_ORIGINS='["https://elibrary-ai.wasmer.app","https://localhost","capacitor://localhost"]'
 ```
+
+Keep the outer single quotes around `CORS_ORIGINS` in dotenv files. Wasmer's
+`--env-file` parser otherwise strips the JSON double quotes, causing a
+`cors_origins` settings error before the application can connect to PostgreSQL.
 
 URL-encode reserved characters in database usernames/passwords, or use the separate
 `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USERNAME`, and `DB_PASSWORD` variables instead.
 All backend instances must share the same secret. Keep it out of `VITE_*`.
+
+For Wasmer-managed PostgreSQL, remove `DATABASE_URL` and use its injected `DB_*`
+variables at runtime. For local migration commands, put the dashboard's current
+`DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USERNAME`, and `DB_PASSWORD` in the ignored
+production environment file. After credential rotation, copy the updated values.
+Do not paste passwords into chat, source code, or shell command arguments.
+
+Wasmer uses a private certificate authority and documents encrypted connections
+without public certificate-chain verification. Set **both** `DB_SSL=true` and
+`DB_SSL_VERIFY=false` for that service. This keeps encryption but does not authenticate
+the server certificate; prefer a provider CA certificate when one is available.
+Other PostgreSQL providers retain `DB_SSL_VERIFY=true`, the default.
+See [Wasmer database TLS and connection variables](https://docs.wasmer.io/edge/learn/databases/).
 
 `SameSite=None` supports separate HTTPS frontend/API sites. Some browsers still block
 third-party cookies; verify the actual pair. Same-site custom domains are preferable
@@ -130,7 +156,8 @@ curl --fail https://YOUR_API_HOST/health
 curl --fail https://YOUR_API_HOST/api/v1/books
 ```
 
-Health queries PostgreSQL. `/docs` exposes the API schema. For an explicit HTTP test
+The root `/` returns HTTP 200 with service information for deployment checks.
+`/health` queries PostgreSQL. `/docs` exposes the API schema. For an explicit HTTP test
 that creates a uniquely named account and guest records:
 
 ```bash

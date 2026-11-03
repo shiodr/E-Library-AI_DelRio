@@ -47,6 +47,11 @@ async def database_error(request: Request, error: SQLAlchemyError):
     return JSONResponse(status_code=503, content={"detail": "Library service unavailable. Please try again."})
 
 
+@app.get("/", tags=["Service"])
+def root():
+    return {"service": "E-Library AI API", "health": "/health", "docs": "/docs"}
+
+
 @app.get("/health", tags=["Health"])
 @app.get("/api/v1/health", tags=["Health"])
 def health():

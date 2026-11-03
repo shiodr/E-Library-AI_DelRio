@@ -50,12 +50,12 @@ The assistant preview does not generate fake responses.”
 ## Slide 5 — Development Progress
 
 - Working frontend/backend and PostgreSQL migration/seed.
-- 31 backend tests, 8 frontend tests, and 6 desktop/mobile browser tests passed.
-- Android project generated; APK compilation blocked by missing local JDK/SDK.
-- Wasmer backend package tested locally with real PostgreSQL and HTTP requests; production deployment remains pending.
-- Next: physical-device build, reachable HTTPS API, catalog expansion, authorized
-  saving/download limits, and embedded AI tools.
+- 38 backend tests, 8 frontend tests, 6 browser tests, 16 production website checks, and 15 native APK checks passed.
+- Debug APK built and installed on an Android 16 ARM64 emulator; physical-phone testing remains unexecuted.
+- Wasmer backend deployed with managed PostgreSQL; root, health, docs, and catalog checks passed.
+- Next: physical-phone verification, catalog expansion,
+  favorites/download UI integration, and embedded AI tools.
 
 Speaker notes: “The shared account contract has been verified through real browser
-registration and Android-style API login. I still need to compile and test the APK
-on a phone. I separate completed work from planned features in the progress document.”
+registration and login in the installed Android emulator APK. The same account
+works on both platforms. Physical-phone checks remain separate in the progress document.”

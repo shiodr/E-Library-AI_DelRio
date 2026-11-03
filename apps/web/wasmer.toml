@@ -1,11 +1,18 @@
-# Based on Wasmer's official edge-react-starter. Build from repository root first.
 [package]
 name = "shiodr/elibrary-ai-web"
-version = "0.1.0"
+version = "0.1.1"
 description = "E-Library AI shared React frontend"
+entrypoint = "serve"
 
 [dependencies]
-"sharrattj/static-web-server" = "1"
+"sharrattj/static-web-server" = "^1"
 
 [fs]
 public = "dist"
+
+[[command]]
+name = "serve"
+module = "sharrattj/static-web-server:webserver"
+runner = "https://webc.org/runner/wasi"
+[command.annotations.wasi]
+env = ["SERVER_ROOT=/public", "SERVER_FALLBACK_PAGE=/public/index.html"]

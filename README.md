@@ -13,7 +13,8 @@ file delivery, AI, and the full 200-book catalog remain planned features.
 
 - Node 24 LTS recommended; Node 22.12+ or 26 also supports the selected tooling.
 - Python 3.13 and PostgreSQL 17, or Docker Desktop for local PostgreSQL.
-- Android Studio 2025.2.1+, its JDK 21, Android SDK platform 36, and SDK build tools for APK builds.
+- Android Studio 2025.2.1+, a separate JDK 21 if Studio bundles another Java version,
+  Android SDK platform 36, and SDK build tools for APK builds.
 - Git. All commands run from the repository root unless stated otherwise.
 
 Exact installed versions and verification limits are in [testing](docs/testing.md).
@@ -108,8 +109,10 @@ adb install -r apps/web/android/app/build/outputs/apk/debug/app-debug.apk
 the checked-in Gradle wrapper's `assembleDebug` on macOS or Windows.
 
 APK output: `apps/web/android/app/build/outputs/apk/debug/app-debug.apk`.
-The Android project is generated, but **no APK has been compiled on this machine**:
-JDK and Android SDK are absent. [Android setup and physical-device test](docs/android.md).
+The debug APK was compiled and installed on an Android 16 ARM64 emulator on
+November 3, 2026. It contains the production React assets and the deployed HTTPS
+backend URL. Size: **4,305,221 bytes**. The build uses Gradle 8.14.3 with JDK 21.
+[Android setup, APK metadata, and device instructions](docs/android.md).
 
 ## Shared account demonstration
 
@@ -118,8 +121,9 @@ JDK and Android SDK are absent. [Android setup and physical-device test](docs/an
 3. Build Android against that same reachable HTTPS API and install the APK.
 4. Sign in with the same email/password. `/auth/me` returns the same user ID.
 
-The automated suite verifies web registration followed by the Android bearer-token
-contract against the same database. Physical-device testing remains pending.
+The deployed website and installed emulator APK completed this flow with the same
+user ID, followed by Android logout and website re-login. The automated suites also
+verify the bearer-token contract independently. Physical-phone testing remains pending.
 
 ## Project map and documents
 
@@ -139,8 +143,11 @@ contract against the same database. Physical-device testing remains pending.
 
 The backend's separate WASIX dependency lock and local-build deployment path now run
 successfully in Wasmer, including real PostgreSQL/authentication/library HTTP checks.
-Cloud backend publication still needs your account and production database settings.
-The existing deployed frontend remains unchanged; set its production API URL and
-rebuild after publishing the backend.
+The backend is deployed at `https://backend-shiodr.wasmer.app` with managed PostgreSQL.
+The website at `https://elibrary-ai.wasmer.app` uses that same HTTPS API. Public
+health/catalog checks and 16 production browser checkpoints passed. The frontend
+Wasmer manifest includes the SPA fallback required for direct links and refreshes.
+For a new production build, set
+`VITE_API_BASE_URL=https://backend-shiodr.wasmer.app/api/v1` before rebuilding.
 
 Deadlines: Phase 1 November 7, Phase 2 November 21, final December 5, 2026.

@@ -1,3 +1,17 @@
+def test_root_supports_deployment_checks_without_catching_unknown_routes(client):
+    response = client.get("/")
+    assert response.status_code == 200
+    assert response.json() == {
+        "service": "E-Library AI API",
+        "health": "/health",
+        "docs": "/docs",
+    }
+    health = client.get(response.json()["health"])
+    assert health.status_code == 200
+    assert health.json()["database"] == "postgresql"
+    assert client.get("/unknown-route").status_code == 404
+
+
 def test_health_and_real_catalog(client):
     assert client.get("/api/v1/health").json()["database"] == "postgresql"
     catalog = client.get("/api/v1/books").json()

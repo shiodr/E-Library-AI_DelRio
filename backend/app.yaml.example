@@ -6,6 +6,8 @@ package: .
 debug: false
 env:
   APP_ENV: production
+  DB_SSL: "true"
+  DB_SSL_VERIFY: "false"
   SESSION_COOKIE_SECURE: "true"
   SESSION_COOKIE_SAMESITE: none
   CORS_ORIGINS: '["https://elibrary-ai.wasmer.app", "https://localhost", "capacitor://localhost"]'

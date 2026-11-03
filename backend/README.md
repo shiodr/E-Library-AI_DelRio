@@ -40,8 +40,32 @@ python -m uvicorn main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
 Health: `http://127.0.0.1:8000/health` (also `/api/v1/health`). OpenAPI: `/docs`.
+The API root `/` returns a small service description with links to `/docs` and
+`/health`. Root HTTP 200 supports deployment checks; `/health` verifies PostgreSQL.
+
 The existing local Homebrew cluster uses `127.0.0.1:55432`; its current ignored
 `backend/.env` is already configured. A new Compose installation uses port 5432.
+If this workspace reports a refused connection to port 55432, check whether the
+cluster is stopped:
+
+```bash
+cd /Users/shio/Programming/E-Library-AI_DelRio
+/opt/homebrew/opt/postgresql@17/bin/pg_ctl -D .local/postgres status
+```
+
+After a Mac restart, or whenever the status reports no server running, start the
+existing cluster and rerun migration and seed:
+
+```bash
+/opt/homebrew/opt/postgresql@17/bin/pg_ctl -D .local/postgres -l .local/postgres.log -o '-p 55432 -h 127.0.0.1' start
+cd backend
+.venv/bin/python -m alembic upgrade head
+.venv/bin/python -m app.services.seed
+```
+
+Wait for each command to finish. Pressing Ctrl+C interrupts a migration; rerun
+`alembic upgrade head` and let it complete before seeding or starting the API.
+
 On Windows use `py -3.13 -m venv backend/.venv`, then
 `.\backend\.venv\Scripts\Activate.ps1`; subsequent `python` commands are identical.
 
