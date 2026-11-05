@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
@@ -34,6 +35,7 @@ class DownloadOutput(BaseModel):
     id: uuid.UUID
     book: BookOutput
     downloaded_at: datetime
+    event_type: Literal["tracking_demo"] = "tracking_demo"
 
 
 class DownloadPage(BaseModel):

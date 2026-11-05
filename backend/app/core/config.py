@@ -35,9 +35,15 @@ class Settings(BaseSettings):
     session_hours: int = Field(default=168, ge=1, le=720)
     guest_session_hours: int = Field(default=24, ge=1, le=168)
     session_token_secret: SecretStr | None = None
+    openai_api_key: SecretStr | None = None
+    openai_model: str = Field(default="gpt-5-mini", min_length=1, max_length=100)
+    assistant_requests_per_hour: int = Field(default=20, ge=1, le=100)
+    assistant_global_requests_per_hour: int = Field(default=100, ge=1, le=1000)
 
     @model_validator(mode="after")
     def check_configuration(self):
+        if self.openai_api_key and not self.openai_api_key.get_secret_value().strip():
+            self.openai_api_key = None
         if not self.database_url and not all(
             [self.db_host, self.db_name, self.db_username, self.db_password]
         ):

@@ -1,15 +1,57 @@
-import { Capacitor } from '@capacitor/core'
+import { Capacitor, registerPlugin } from '@capacitor/core'
 
 const configured = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api/v1'
 export const API_BASE_URL = configured.replace(/\/$/, '')
 export const native = Capacitor.isNativePlatform()
-// Native sessions intentionally live in memory. Never persist a bearer token in Web Storage.
+// The native vault encrypts sessions with Android Keystore; Web Storage never holds credentials.
 let bearer: string | null = null
 let sessionVersion = 0
-export function setBearer(token: string | null) { bearer = token; sessionVersion += 1 }
+interface NativeSessionStore {
+  read(options: { apiBaseUrl: string }): Promise<{ token: string | null }>
+  write(options: { token: string; apiBaseUrl: string }): Promise<void>
+  clear(): Promise<void>
+}
+const sessionStore = registerPlugin<NativeSessionStore>('NativeSession')
+let storageOperation: Promise<unknown> = Promise.resolve()
+let restoration: Promise<void> | undefined
 
 export class ApiError extends Error {
   constructor(message: string, public status: number) { super(message) }
+}
+
+function useStorage<T>(operation: () => Promise<T>): Promise<T> {
+  const next = storageOperation.catch(() => {}).then(operation)
+  storageOperation = next
+  return next.catch(() => {
+    throw new ApiError('Cannot securely access your saved sign-in. Please try again.', 0)
+  })
+}
+
+export async function setBearer(token: string | null): Promise<void> {
+  const version = ++sessionVersion
+  bearer = token
+  if (!native) return
+  try {
+    await useStorage(() => token
+      ? sessionStore.write({ token, apiBaseUrl: API_BASE_URL })
+      : sessionStore.clear())
+  } catch (error) {
+    if (version === sessionVersion) { bearer = null; sessionVersion += 1 }
+    throw error
+  }
+}
+
+export function restoreBearer(): Promise<void> {
+  if (!native) return Promise.resolve()
+  if (!restoration) {
+    const version = sessionVersion
+    restoration = useStorage(() => sessionStore.read({ apiBaseUrl: API_BASE_URL }))
+      .then(({ token }) => {
+        if (version === sessionVersion) { bearer = token; sessionVersion += 1 }
+      })
+      .catch(error => { restoration = undefined; throw error })
+  }
+  return restoration
 }
 
 export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {

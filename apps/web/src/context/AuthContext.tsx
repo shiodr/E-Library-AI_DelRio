@@ -1,13 +1,13 @@
 import { createContext, startTransition, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { api, ApiError, client, post, setBearer } from '../lib/api'
+import { api, ApiError, client, post, restoreBearer, setBearer } from '../lib/api'
 import type { AuthResponse, Profile } from '../types'
 
 interface AuthContextValue {
   profile: Profile | null
   loading: boolean
   connectionError: string
-  refresh: () => Promise<void>
+  refresh: (silent?: boolean) => Promise<void>
   login: (email: string, password: string) => Promise<void>
   register: (full_name: string, email: string, password: string) => Promise<void>
   guest: () => Promise<void>
@@ -20,20 +20,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
   const [connectionError, setConnectionError] = useState('')
   const epoch = useRef(0)
-  const clear = useCallback(() => { epoch.current += 1; setBearer(null); setProfile(null) }, [])
-  const refresh = useCallback(async () => {
+  const clear = useCallback(() => {
+    epoch.current += 1
+    setProfile(null)
+    void setBearer(null).catch(error => setConnectionError(error.message))
+  }, [])
+  const refresh = useCallback(async (silent = false) => {
     const requestEpoch = ++epoch.current
-    setLoading(true)
-    setConnectionError('')
+    if (!silent) { setLoading(true); setConnectionError('') }
     try {
+      await restoreBearer()
+      if (requestEpoch !== epoch.current) return
       const result = await api<Profile>('/auth/me')
       if (requestEpoch === epoch.current) setProfile(result)
     }
     catch (error) {
       if (requestEpoch !== epoch.current) return
-      if (error instanceof ApiError && error.status === 401) { setBearer(null); setProfile(null) }
-      else setConnectionError(error instanceof Error ? error.message : 'Unable to check your session.')
-    } finally { if (requestEpoch === epoch.current) setLoading(false) }
+      if (error instanceof ApiError && error.status === 401) {
+        setProfile(null)
+        try { await setBearer(null) }
+        catch (storageError) {
+          if (requestEpoch === epoch.current) setConnectionError(storageError instanceof Error ? storageError.message : 'Unable to clear your saved sign-in.')
+        }
+      }
+      else if (!silent) setConnectionError(error instanceof Error ? error.message : 'Unable to check your session.')
+    } finally { if (!silent && requestEpoch === epoch.current) setLoading(false) }
   }, [clear])
   useEffect(() => {
     void refresh()
@@ -52,17 +63,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [profile, clear, refresh])
 
   async function authenticate(path: string, data: object) {
-    epoch.current += 1
+    const requestEpoch = ++epoch.current
     setLoading(false)
     const result = await post<AuthResponse>(path, { ...data, client })
-    setBearer(result.access_token)
+    if (requestEpoch !== epoch.current) return
+    await setBearer(result.access_token)
+    if (requestEpoch !== epoch.current) return
     setProfile(result)
     setConnectionError('')
   }
   async function logout(onSuccess: () => void) {
     try { await post<void>('/auth/logout') }
     catch (error) { if (!(error instanceof ApiError) || error.status !== 401) throw error }
-    startTransition(() => { onSuccess(); clear() })
+    await setBearer(null)
+    startTransition(() => { onSuccess(); epoch.current += 1; setProfile(null) })
   }
   return <AuthContext.Provider value={{
     profile, loading, connectionError, refresh,

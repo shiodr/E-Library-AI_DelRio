@@ -1,9 +1,195 @@
 # Phase 1 verification
 
-Updated November 3, 2026 (Asia/Manila). Results below describe executed checks;
+Updated November 5, 2026 (Asia/Manila). Results below describe executed checks;
 physical Android device testing is distinguished from browser and emulator results.
 
-## Results
+## Expanded Phase 1 implementation — November 4–5, 2026
+
+The [current handoff](phase1-completion.md) records implemented features, endpoints,
+migration/deployment commands, APK metadata, and the remaining acceptance blocker.
+Overall Phase 1 is **incomplete**: the owner chose to leave OpenAI generation blocked.
+Catalog retrieval was exercised against real PostgreSQL on both deployed clients;
+neither client returned `mode: "llm"`. No paid provider call was made.
+
+| Check | Observed result |
+| --- | --- |
+| PostgreSQL backend `pytest -q` | 87 passed against isolated PostgreSQL 17.11; one existing Starlette/httpx deprecation warning |
+| `npm test` | 22 passed, including assistant fallback/retry and persistent tracking feedback |
+| `npm run build` | TypeScript compilation and Vite production build passed |
+| `npm run test:e2e` | 12 desktop/mobile Chrome tests passed against real local FastAPI/PostgreSQL |
+| Static/source review | Ruff and whitespace checks passed; focused backend security/correctness review found no material issues |
+| Production schema | Packaged migration `0003` applied; application counts preserved across upgrade |
+| WASIX and deployment | Package build check and both existing Wasmer app deployments passed; website package is `shiodr/elibrary-ai-web@0.1.6` |
+| Production website | Eight checkpoints passed in Chrome against the shared production HTTPS API |
+| Expanded Android APK | Build, signature verification, and installation passed; 4,595,620 bytes |
+| Installed Android application | Six checkpoints passed on November 5 in the actual API 36 ARM64 Capacitor WebView |
+| Credential exclusion | No exact matches for configured secrets or the private QA password across 222 source/build files and APK entries; private files/builds remain ignored |
+
+Backend tests cover administrator authentication and current-role enforcement, reader/guest
+denial, expired/revoked sessions, input/duplicate validation, add/edit/archive/restore,
+real statistics, and seed preservation of administrator edits. Assistant checks cover real
+catalog matches, title/author/category/subject queries, missing topics, archived-book exclusion,
+private contextual follow-ups, shared rate limits, and provider failure/structured response
+validation. Provider responses are mocked in automated tests; those tests do not establish
+live OpenAI connectivity. Existing authentication, ownership, idempotence, five/ten-book
+limits, concurrency, migration rollback/reapply, and catalog checks remain in the suite.
+
+Production migration snapshots retained seven users, 32 sessions, 208 books, zero favorites,
+and zero downloads while revision advanced from `0002` to `0003`. Later QA created only its
+own account and records. The production website run checked ordinary-user/guest 403 responses,
+real admin counts, add/edit with a stable ID, archive/public 404, restore/public 200,
+contextual Rust retrieval with valid clickable book IDs, archived recommendation exclusion,
+and private tracking/favorites. Tracking one free book consumed one slot; repeating it did
+not consume another. Every event was labeled `tracking_demo`; no file was delivered.
+The sample used a genuine publisher listing, not a fabricated catalog title.
+
+The website's first attempt stopped on a test-selector ambiguity between filter and editor
+category labels. No book was created on that attempt. Scoping the selector to the editor
+resolved the harness issue; the corrected eight-check run passed. Its sanitized initial
+failure remains separate from the final results. Desktop/admin, tablet/dark, and mobile
+layouts were exercised, and saved screenshots were visually inspected.
+
+The six native checkpoints verified the website-created account's identical user ID,
+synchronized favorites/tracking history, unchanged duplicate usage, administrator restore/archive
+visibility after refresh, website-only admin navigation, real assistant IDs and context,
+failed-network retry without duplicate messages, clickable details, hardware Back, and
+full force-stop/relaunch with the original session and no extra login request. Web Storage
+contained no credentials. Android reported a visible keyboard; screenshots showed readable
+system bars and navigation above the gesture area, with no horizontal overflow.
+
+Both production runs returned `catalog_only` for assistant replies. Cleanup archived the
+sample publisher record, revoked temporary QA administrator access, logged out QA sessions,
+and confirmed 200 active programming books. Both owner-requested accounts were separately
+verified as administrators through trusted provisioning. Safe results/screenshots and private
+QA credentials remain ignored under `.local/phase1-completion`; credentials are never part
+of the handoff. The current APK checksum is recorded in [Android instructions](android.md).
+
+The final direct Python/Node/curl health rechecks encountered routing errors or connection
+timeouts for both app domains. A fresh actual Chrome process then loaded both successfully:
+the website returned HTTP 200 with its creator-branded title, and `/health` returned HTTP 200
+with `{"status":"ok","database":"postgresql","phase":1}`. Wasmer metadata separately
+confirmed both existing apps and their active versions. No deployment or TLS setting was
+changed to mask the probe failure. Direct-client reachability remains a local/environment
+limitation to investigate if it recurs; these results do not establish availability from every
+network or client.
+
+Remaining checks: live generated AI on both clients, the expanded APK on an actual phone,
+other browsers/privacy settings, assistive technology, signed release delivery, Docker runtime,
+and hosted CI. Earlier Samsung testing was user-reported and used an earlier APK. Earlier
+dated foundation/catalog/session results below are retained as historical evidence.
+
+## Creator branding — November 4, 2026
+
+The website now displays `by shio del rio` beneath the shared logo, `Created by shio del rio` in
+the landing/application footers, and creator metadata in the page title and head.
+The existing Wasmer website was deployed with package `shiodr/elibrary-ai-web@0.1.5`.
+Live Chrome inspection confirmed the landing and guest application credits; the
+login page uses the same shared logo component. The landing and application layouts
+fit both 320- and 412-pixel widths without
+horizontal overflow. Mobile screenshots were visually inspected.
+
+All eighteen frontend tests and the TypeScript/Vite production build passed.
+The Android branding APK also built successfully and passed signature verification.
+Its compiled launcher label is `E-Library AI by shio del rio`; inspection confirmed the
+creator credits in its bundled assets and the original application ID. This build
+is 4,595,620 bytes; its current checksum is in [Android instructions](android.md).
+It retains the previously tested persistent-login implementation; native session
+checks were not repeated for this branding-only update. Safe live-browser evidence
+is ignored under `.local/branding-qa`.
+
+## Android login persistence fix — November 4, 2026
+
+The user reported testing the earlier APK on a Samsung phone and losing login
+after reopening it. Investigation confirmed that the Android bearer existed only
+in JavaScript memory. The corrected APK restores an Android Keystore-encrypted
+session before checking `/auth/me` and opens the dashboard for a valid session.
+Website authentication continues to use HttpOnly cookies.
+
+| Check | Observed result |
+| --- | --- |
+| `npm test` | 18 passed: existing interface checks, eight native storage regressions, and startup restoration ordering |
+| `npm run build` | TypeScript compilation and Vite production bundle passed |
+| `npm run test:e2e` | Six desktop/mobile Chrome checks passed against real local FastAPI/PostgreSQL |
+| `npm run android:apk` | Build passed; 153 tasks, 30 executed and 123 up to date |
+| APK signature and install | `apksigner verify` passed; dedicated emulator installation returned `Success` |
+| Installed APK persistence | Seven checkpoints passed on the actual API 36 ARM64 WebView against the production HTTPS API |
+| Persistence-fix APK | 4,468,507 bytes; subsequently replaced by the branding APK at the same output path |
+
+The native checks verified encrypted private storage without plaintext credentials,
+full force-stop/relaunch into the dashboard with the same user and unchanged
+original session token, offline profile failure and successful retry, explicit
+logout surviving relaunch, external revocation clearing the saved session, corrupt
+ciphertext requiring login, and absence of QA passwords/tokens from Logcat and
+Web Storage. The restored dashboard screenshot was visually inspected.
+
+The first restart harness attempt reused a cached, closed WebView. Its sanitized
+failure was preserved; the harness now waits for removal and attaches a fresh
+WebView after each force-stop. The corrected seven-check run passed without product
+failures. Detailed results and safe screenshots are ignored under `.local/session-qa`.
+The corrected APK still needs confirmation on the user's Samsung phone; agent-run
+verification used the emulator. No backend migration or authentication-secret change
+was required for this fix.
+
+The browser rerun initially could not start because the existing local PostgreSQL
+cluster was stopped. After starting that same loopback-only cluster, all six browser
+checks passed. No database reset or product-code change was needed.
+
+## Programming catalog verification — November 4, 2026
+
+These results precede the Android persistence fix above; the catalog APK was
+replaced at the same output path by the current APK.
+
+| Check | Observed result |
+| --- | --- |
+| PostgreSQL backend `pytest -q` | 46 passed against the isolated PostgreSQL 17.11 test database |
+| `npm test` | 9 passed, including paid publisher source labels |
+| `npm run build` | TypeScript compilation and Vite production bundle passed |
+| `npm run test:e2e` | 6 desktop/mobile browser tests passed against real FastAPI/PostgreSQL |
+| Source manifest | 200 unique titles and source URLs; 60 Rust, 34 free online editions, 166 paid listings |
+| Migration and import | `0002` upgrade, downgrade/re-upgrade preservation, and repeated seed passed; existing IDs and history retained |
+| WASIX package | Package build check and packaged seed against the isolated test database passed |
+| Production rollout | Migration `0002`, backend deployment, frontend deployment, and catalog import succeeded |
+| Production data preservation | 200 active titles and eight archived samples; existing account, favorite, and download counts unchanged during import |
+| Deployed website | 12 catalog checkpoints passed in Chrome against the production HTTPS API |
+| Android debug APK | Rebuilt, signature verified, installed successfully; 4,306,106 bytes |
+| Installed Android APK | 15 checkpoints passed in the actual API 36 ARM64 Capacitor WebView |
+| Static checks | Ruff and `git diff --check` passed |
+
+The added backend checks cover all 200 records across pagination, duplicate manifest
+rejection, idempotent import, retained IDs, preserved archived favorites/downloads and
+allowance usage, custom catalog entries, and paid-book download rejection without
+consuming quota. Existing authentication, concurrency, and five/ten-book limit checks
+remain part of the 46-test suite.
+
+The production website run checked four public API pages of 50 unique records,
+the exact category distribution, Rust-first homepage cards, 12-card Explore pages,
+distinct next-page IDs, Rust/Python filters, authorized free and paid source links,
+paid download rejection with unchanged guest usage, logout, and a 412-pixel layout.
+All 23 observed API requests used the production HTTPS backend.
+
+The updated native run verified bundled `https://localhost` assets, registration,
+invalid/valid login, the website account's matching user ID, guests, logout/replay
+rejection, the 200-title/60-Rust catalog, pagination, free/paid labels, hardware Back,
+loading/error/retry, website re-login, and Back-to-exit. Android reported a visible
+keyboard. The catalog screenshot was visually checked for readable system bars and
+navigation above the gesture area; layout measurements found no horizontal overflow.
+Physical-phone testing and release signing remain pending.
+
+The source audit returned 165 direct HTTP 200 responses. Thirty-four publisher pages
+blocked automated requests and one author page had a client certificate-chain failure;
+their metadata was separately checked through primary web sources. This is not a
+claim that every source passed a direct HTTP check. No book files were downloaded,
+and no purchases or publisher subscriptions were made. See the full
+[catalog and source list](programming-catalog.md).
+
+Safe screenshots and detailed results are ignored under `.local/catalog-curation`.
+QA account credentials are kept separately in ignored mode-600 files. The current
+APK checksum is recorded in [Android instructions](android.md).
+
+## Historical Phase 1 baseline — November 3, 2026
+
+The following results describe the earlier eight-book build. They remain as dated
+evidence; the November 4 results above describe the current catalog and APK.
 
 | Check | Observed result |
 | --- | --- |

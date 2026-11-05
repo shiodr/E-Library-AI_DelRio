@@ -4,9 +4,9 @@ import { useTheme } from '../context/ThemeContext'
 import type { Book } from '../types'
 
 export function Brand() {
-  return <Link to="/" className="brand" aria-label="E-Library AI home">
+  return <Link to="/" className="brand" aria-label="E-Library AI by shio del rio home">
     <span className="brand-mark"><BookOpen size={23} strokeWidth={1.8} /></span>
-    <span>E-Library<span className="ai-label">AI</span></span>
+    <span className="brand-wordmark"><span>E-Library<span className="ai-label">AI</span></span><small className="brand-owner">by shio del rio</small></span>
   </Link>
 }
 export function ThemeToggle() {
@@ -29,7 +29,7 @@ export function Cover({ book, large = false }: { book: Book; large?: boolean }) 
   const tone = Array.from(book.title).reduce((sum, char) => sum + char.charCodeAt(0), 0) % 6
   return <div className={`book-cover cover-${tone} ${large ? 'cover-large' : ''}`} aria-hidden="true">
     {book.cover_url ? <img src={book.cover_url} alt="" loading="lazy" /> : <>
-      <div className="cover-edition">THE OPEN COLLECTION</div>
+      <div className="cover-edition">THE PROGRAMMING COLLECTION</div>
       <div className="cover-title">{title}{subtitle && <small>{subtitle}</small>}</div>
       <div className="cover-art"><span /><span /><span /></div>
       <div className="cover-author">{book.author}</div>
@@ -41,6 +41,7 @@ export function BookCard({ book }: { book: Book }) {
     <Cover book={book} />
     <div className="book-meta"><span className="eyebrow">{book.category}</span><ArrowRight size={16} /></div>
     <h3>{book.title}</h3><p>{book.author}</p>
+    <span className="book-access">{book.access_type === 'paid' ? 'Paid publisher listing' : 'Free online edition'}</span>
   </Link>
 }
 export function BookSkeletons({ count = 4 }: { count?: number }) {

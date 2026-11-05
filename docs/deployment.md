@@ -117,10 +117,16 @@ wasmer run backend --entrypoint seed --net --env-file backend/.env.production
 wasmer run backend --entrypoint check --net --env-file backend/.env.production
 ```
 
-`migrate` applies Alembic `upgrade head`. `seed` idempotently adds eight sample metadata
-records. `check` verifies imports, hashing, PostgreSQL, and the migration revision.
+`migrate` applies Alembic `upgrade head`. `seed` upserts the 200 reviewed programming
+records and archives the eight legacy samples without deleting history. `check`
+verifies imports, hashing, PostgreSQL, and the migration revision.
 The server does not migrate automatically on each Edge cold start. Never run test
 rollback commands against production.
+
+For an existing pre-catalog deployment, apply additive migration `0002`, deploy the
+matching backend and frontend access labels, then run the seed as the final atomic
+catalog switch. The expanded columns remain compatible with the previous backend
+during rollout. See [catalog sources and preservation](programming-catalog.md).
 
 For Wasmer-managed PostgreSQL, `capabilities.database.engine: postgres` provisions it
 and injects `DB_*` credentials. Remove the placeholder `DATABASE_URL` so those values

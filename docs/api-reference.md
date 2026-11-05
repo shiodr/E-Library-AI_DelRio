@@ -1,5 +1,11 @@
 # Shared API reference
 
+Administrator and assistant endpoints are implemented in the current API. See the
+[Phase 1 endpoint list](phase1-completion.md#new-api-endpoints), including protected
+book add/edit/archive/restore and `/assistant/chat`. Assistant responses explicitly
+distinguish `llm`, `catalog_only`, and `provider_error`; configuration alone does not
+prove a working provider call. Download responses identify `event_type: tracking_demo`.
+
 Base URL: `http://127.0.0.1:8000/api/v1` locally, reachable HTTPS in production.
 Authoritative generated schemas: `/openapi.json`; interactive documentation: `/docs`.
 `GET /` returns HTTP 200 with service information and links to `/health` and `/docs`.
@@ -20,6 +26,14 @@ Authoritative generated schemas: `/openapi.json`; interactive documentation: `/d
 | `DELETE /favorites/{book_id}` | Registered user | Idempotent removal of own favorite; 204 |
 | `GET /downloads` | Valid user/guest session | Own paginated history and allowance |
 | `POST /downloads` | Valid user/guest session | Body `{book_id}`; atomically enforce quota, 201 new or 200 repeated |
+| `GET /assistant/status` | Valid user/guest session | Provider configuration status, not a live-provider health check |
+| `POST /assistant/chat` | Valid user/guest session | Catalog-backed conversation with explicit response mode |
+| `GET /admin/overview` | Administrator | Real counts, categories, and recent activity |
+| `GET /admin/books` | Administrator | Paginated active/archived search and filtering |
+| `POST /admin/books` | Administrator | Create a validated book record |
+| `PUT /admin/books/{book_id}` | Administrator | Update metadata while retaining the book ID |
+| `POST /admin/books/{book_id}/archive` | Administrator | Hide public availability and preserve history |
+| `POST /admin/books/{book_id}/restore` | Administrator | Restore public availability |
 
 `GET /health` is also available outside the `/api/v1` prefix for deployment probes.
 
@@ -54,26 +68,48 @@ Origin must still be trusted.
 
 ## Catalog
 
-`GET /books?q=darwin&category=Science&limit=12&offset=0` returns
-`{"items":[...],"total":1,"limit":12,"offset":0}`. Search matches title, author,
+`GET /books?category=Rust&limit=12&offset=0` returns
+`{"items":[...],"total":60,"limit":12,"offset":0}`. Search matches title, author,
 or description case-insensitively; SQL wildcard characters are escaped. `limit` is
-1–50; `offset` is nonnegative; `q` is at most 150 characters. Sorting is by title and ID.
+1–50; `offset` is nonnegative; `q` is at most 150 characters. Rust is sorted first,
+then title and ID. The unfiltered public catalog contains 200 programming titles.
 
 Each book includes `id`, `title`, `author`, `category`, `description`, `cover_url`,
-`source_url`, and `license_type`. Null cover URLs use original frontend placeholders.
-Categories return `[{"name":"Science","count":1}, ...]`.
+`source_url`, `license_type`, `access_type` (`free_to_read` or `paid`), and `is_active`.
+Null cover URLs use original frontend placeholders. Categories return
+`[{"name":"Rust","count":60}, ...]`, with Rust first. Archived records are excluded
+from public listing/detail/category routes but retained in existing private history.
 
 Errors use `{"detail":"Human-readable message"}` or FastAPI's 422 validation list.
 The client displays actionable generic validation/network messages, preserves API
 auth errors, and offers catalog retry. Untrusted mutation origins receive 403.
 Favorite/download list responses use `{items,total,limit,offset}`. Each favorite has
-`id`, `book`, and `created_at`; each download has `id`, `book`, and `downloaded_at`.
+`id`, `book`, and `created_at`; each download has `id`, `book`, `downloaded_at`,
+and `event_type: "tracking_demo"`.
 Downloads also return `allowance: {limit,used,remaining}`. POST download adds
 `already_downloaded`. The limit is five distinct books per guest session and ten per
 account across devices, without a scheduled reset. Repeats do not consume slots.
 Exhausted allowance returns 403. New sessions do not reset registered-account history.
+New download requests for paid listings return 403 without consuming allowance.
 Guests receive 403 for favorites. Owner IDs/extra action fields are rejected with 422.
 
-Tracking records an approved download request; file bytes are not hosted or delivered
-by this endpoint. The existing frontend's future library screens are unchanged.
-There is no AI endpoint or paid model call in this implementation.
+Tracking records an approved request; file bytes are not hosted or delivered by this
+endpoint. The shared frontend exposes explicitly labeled tracking controls and private
+history. Favorites uses the same existing registered-account service.
+
+## Assistant and administration
+
+Chat accepts `{"message":"Find Rust books."}` and an optional owner-bound
+`conversation_id` UUID for a follow-up. It returns `conversation_id`, `answer`, real
+`books`, `mode`, `generation_available`, and nullable `model`. Modes are `llm`,
+`catalog_only`, or `provider_error`; the latter two explicitly disclose retrieval
+without successful generation. Shared per-owner/global limits return 429 with a retry
+header. Another owner's conversation returns 404. No live provider call is claimed
+while generation remains blocked.
+
+All administrator endpoints reload the current account role from PostgreSQL. Readers
+and guests receive 403; missing/expired/revoked sessions receive 401. Administrator
+registration is not public. Book updates preserve historical references, archive does
+not delete rows, and the bootstrap seed respects administrator-managed records.
+See the [handoff](phase1-completion.md) for provisioning, field validation, deployment,
+and demonstration commands; `/openapi.json` defines the full request/response schemas.

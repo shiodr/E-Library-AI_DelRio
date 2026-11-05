@@ -1,5 +1,17 @@
 # Phase 1 progress — updated November 3, 2026
 
+For the current implementation against the expanded Phase 1 checklist, use the
+[November 5 completion handoff](phase1-completion.md). Administrator book management,
+assistant retrieval, and tracking UI are now implemented. Overall Phase 1 remains
+incomplete while live LLM generation or any final acceptance gate is unverified.
+The foundation results below are historical and do not establish completion of
+the later checklist.
+
+The Phase 1 results below are the November 3 baseline. On November 4, the user
+authorized the [200-title programming catalog](programming-catalog.md), now live with
+60 Rust books. That update archives the original eight samples while preserving
+existing library history. New verification is recorded in [testing](testing.md).
+
 Phase 1 deadline: November 7. Phase 2: November 21. Final: December 5, 2026.
 
 ## Implemented and exercised
@@ -63,6 +75,6 @@ SDK settings, APKs, and signing stores remain ignored.
 
 ## Explicitly planned
 
-The full 200-book catalog, hosted file delivery, library/favorite UI wiring, and live
+Hosted file delivery, library/favorite UI wiring, and live
 Agentic AI remain planned. Backend favorites, request tracking, and allowance enforcement
 are implemented; the frontend's existing placeholders remain unchanged. No paid AI calls were made.

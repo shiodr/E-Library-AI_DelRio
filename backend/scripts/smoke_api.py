@@ -15,7 +15,14 @@ def main():
     base = f"{host}/api/v1"
     with httpx.Client(headers={"Origin": "https://elibrary-ai.wasmer.app"}, timeout=30) as web:
         assert web.get(f"{host}/health").status_code == 200
-        books = web.get(f"{base}/books?limit=50").json()["items"]
+        books = []
+        offset = 0
+        while len(books) < 6:
+            page = web.get(f"{base}/books", params={"limit": 50, "offset": offset}).json()
+            books.extend(book for book in page["items"] if book.get("access_type", "free_to_read") == "free_to_read")
+            offset += 50
+            if offset >= page["total"]:
+                break
         assert len(books) >= 6, "Seed at least six books before running the quota smoke check."
         with httpx.Client(timeout=30) as mobile:
             guest = mobile.post(f"{base}/auth/guest", json={"client": "android"})

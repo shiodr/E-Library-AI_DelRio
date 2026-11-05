@@ -1,9 +1,21 @@
 # E-Library AI backend
 
+Phase 1 extensions now include protected administrator statistics/book management,
+private assistant conversations, catalog-grounded OpenAI tools, and explicit tracking
+demonstration responses. Apply migration `0003` before deploying this API. See the
+[completion handoff](../docs/phase1-completion.md) for setup, endpoints, and verification.
+AI generation is unverified until a server-side key is configured and a real call succeeds.
+
 One FastAPI/PostgreSQL API for the existing React website at
 `https://elibrary-ai.wasmer.app` and the Capacitor Android app. No frontend source
 or layout change is required. The existing authentication/catalog contracts remain
 compatible; new library actions share the same session validation and database.
+
+The current catalog contains 200 programming titles, including 60 Rust books.
+Free online editions and paid publisher listings have explicit `access_type` values.
+Run migration `0002` before the seed. The importer keeps stable IDs and archives
+the eight original sample rows without deleting favorites, downloads, or accounts.
+See [catalog sources and import rules](../docs/programming-catalog.md).
 
 ## Local setup
 
@@ -97,11 +109,14 @@ new book receives 403. Expired/revoked sessions receive 401. PostgreSQL owner-ro
 locks, session revalidation after lock waits, and unique constraints protect the
 check-and-insert transaction against concurrent requests.
 
+New requests for paid listings receive 403 without consuming an allowance. Public
+catalog routes exclude archived rows; existing private history retains those rows.
+
 This endpoint records approved requests; it does not claim that file bytes were
 delivered. Source links remain external public catalog references. Controlled EPUB/PDF
-storage, streaming, and delivery confirmation are separate future work. The current
-frontend's library/download placeholders remain unchanged; these API actions are ready
-for later UI integration and authorized agent tools.
+storage, streaming, and delivery confirmation are separate future work. The shared
+frontend now connects these endpoints through favorites, My Library history, and an
+explicitly labeled tracking demonstration on free-book details. No file delivery is claimed.
 
 ## Authentication security
 
@@ -116,8 +131,9 @@ Rolling back to the earlier SHA-only backend requires HMAC sessions to sign in a
 existing unprefixed sessions remain compatible.
 
 Browser cookies are HttpOnly; production requires Secure. A separate HTTPS API uses
-`SESSION_COOKIE_SAMESITE=none`. Android uses in-memory bearer tokens and requires
-sign-in after process restart. CORS permits the exact deployed website and documented
+`SESSION_COOKIE_SAMESITE=none`. Android restores its bearer token from Android
+Keystore-encrypted private storage before validating the session with the backend.
+Logout, expiry, or revocation clears that saved credential. CORS permits the exact deployed website and documented
 local/Capacitor origins; untrusted mutation origins are rejected independently of CORS.
 Use the production environment template to exclude development origins.
 

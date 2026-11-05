@@ -1,6 +1,6 @@
 [package]
 name = "shiodr/elibrary-ai-web"
-version = "0.1.1"
+version = "0.1.6"
 description = "E-Library AI shared React frontend"
 entrypoint = "serve"
 

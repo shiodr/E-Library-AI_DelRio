@@ -1,4 +1,5 @@
 import uuid
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
@@ -13,6 +14,8 @@ class BookOutput(BaseModel):
     cover_url: str | None
     source_url: str
     license_type: str
+    access_type: Literal["free_to_read", "paid"] = "free_to_read"
+    is_active: bool = True
 
 
 class BookPage(BaseModel):

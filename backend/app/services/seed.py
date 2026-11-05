@@ -1,104 +1,60 @@
-"""Idempotently seed metadata only. Never download or redistribute source files."""
+"""Import reviewed programming metadata without downloading or redistributing books."""
 
+import uuid
+
+from sqlalchemy import select, text, update
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.orm import Session
 
 from app.core.database import SessionLocal
 from app.models import Book
+from app.services.catalog import load_catalog
 
-SAMPLES = [
-    (
-        "Pride and Prejudice",
-        "Jane Austen",
-        "Literature",
-        "1813",
-        "1342",
-        ("A perceptive comedy of manners about first impressions, family expectations, and the relationship "
-        "between Elizabeth Bennet and Mr. Darcy in nineteenth-century England."),
-    ),
-    (
-        "Frankenstein",
-        "Mary Wollstonecraft Shelley",
-        "Literature",
-        "1818",
-        "84",
-        ("Victor Frankenstein creates a living being and confronts the consequences of abandoning his creation. "
-        "A classic exploration of ambition, responsibility, and belonging."),
-    ),
-    (
-        "Alice's Adventures in Wonderland",
-        "Lewis Carroll",
-        "Adventure",
-        "1865",
-        "11",
-        ("Alice follows a white rabbit into a world where logic bends and curiosity leads the way. "
-        "A playful adventure full of wordplay and unexpected encounters."),
-    ),
-    (
-        "The Time Machine",
-        "H. G. Wells",
-        "Science fiction",
-        "1895",
-        "35",
-        ("An inventor travels far into the future and encounters a civilization divided in unsettling ways. "
-        "An early science fiction story about progress, society, and time."),
-    ),
-    (
-        "On the Origin of Species",
-        "Charles Darwin",
-        "Science",
-        "1859",
-        "1228",
-        ("Darwin presents evidence for evolution through natural selection, drawing on observations of "
-        "variation, adaptation, and the relationships among living organisms. A historical scientific text."),
-    ),
-    (
-        "A Journey to the Centre of the Earth",
-        "Jules Verne",
-        "Adventure",
-        "1871 English rewrite",
-        "18857",
-        ("A professor and his companions follow a cryptic manuscript into the depths of the Earth. "
-        "An imaginative nineteenth-century scientific adventure in an early English rewrite."),
-    ),
-    (
-        "The War of the Worlds",
-        "H. G. Wells",
-        "Science fiction",
-        "1898",
-        "36",
-        ("An invasion from Mars turns familiar English landscapes into a struggle for survival. "
-        "Wells examines human vulnerability and the assumptions of technological power."),
-    ),
-    (
-        "The Secret Garden",
-        "Frances Hodgson Burnett",
-        "Literature",
-        "1911",
-        "17396",
-        ("A lonely child discovers a locked garden on the Yorkshire moors. "
-        "A story of friendship, renewal, and the restorative possibilities of nature."),
-    ),
-]
+LEGACY_SAMPLE_URLS = tuple(
+    f"https://www.gutenberg.org/ebooks/{identifier}"
+    for identifier in ("1342", "84", "11", "35", "1228", "18857", "36", "17396")
+)
+
+
+def seed_catalog(db: Session) -> int:
+    entries = load_catalog()
+    db.execute(text("SELECT pg_advisory_xact_lock(73100401)"))
+    values = []
+    protected = set(db.scalars(select(Book.seed_source_url).where(Book.is_managed_by_admin.is_(True))))
+    for entry in entries:
+        source = str(entry.source_url)
+        if source in protected:
+            continue
+        values.append({
+            "id": uuid.uuid5(uuid.NAMESPACE_URL, source),
+            "title": entry.title,
+            "author": entry.author,
+            "category": entry.category,
+            "description": entry.description,
+            "cover_url": None,
+            "source_url": source,
+            "license_type": entry.license_type,
+            "access_type": entry.access_type,
+            "is_active": True,
+            "seed_source_url": source,
+        })
+    if values:
+        statement = insert(Book).values(values)
+        db.execute(statement.on_conflict_do_update(
+            index_elements=[Book.source_url],
+            set_={key: getattr(statement.excluded, key) for key in values[0] if key != "id"},
+            where=Book.is_managed_by_admin.is_(False),
+        ))
+    # Archive only the original known samples. Never delete books or user history.
+    db.execute(update(Book).where(Book.source_url.in_(LEGACY_SAMPLE_URLS), Book.is_managed_by_admin.is_(False)).values(is_active=False))
+    db.commit()
+    return len(entries)
 
 
 def seed():
     with SessionLocal() as db:
-        for title, author, category, publication, source_id, description in SAMPLES:
-            db.execute(
-                insert(Book)
-                .values(
-                    title=title,
-                    author=author,
-                    category=category,
-                    description=description,
-                    cover_url=None,
-                    source_url=f"https://www.gutenberg.org/ebooks/{source_id}",
-                    license_type=f"Public domain in the USA ({publication}); verify local laws and Project Gutenberg terms.",
-                )
-                .on_conflict_do_nothing()
-            )
-        db.commit()
-    print(f"Seed complete: {len(SAMPLES)} sample records checked (no book files downloaded).")
+        count = seed_catalog(db)
+    print(f"Seed complete: {count} programming records reviewed; administrator edits preserved; no book files downloaded.")
 
 
 if __name__ == "__main__":

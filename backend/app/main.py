@@ -6,7 +6,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
-from app.api import auth, books, library
+from app.api import admin, assistant, auth, books, library
 from app.core.config import get_settings
 from app.core.database import engine
 
@@ -16,7 +16,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization"],
 )
 
@@ -35,7 +35,7 @@ async def browser_security(request: Request, call_next):
     response = await call_next(request)
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-    if request.url.path.startswith(("/api/v1/auth", "/api/v1/favorites", "/api/v1/downloads")):
+    if request.url.path.startswith(("/api/v1/auth", "/api/v1/favorites", "/api/v1/downloads", "/api/v1/admin", "/api/v1/assistant")):
         response.headers["Cache-Control"] = "no-store"
     return response
 
@@ -63,3 +63,5 @@ def health():
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(books.router, prefix="/api/v1")
 app.include_router(library.router, prefix="/api/v1")
+app.include_router(assistant.router, prefix="/api/v1")
+app.include_router(admin.router, prefix="/api/v1")

@@ -1,3 +1,12 @@
-from app.models.entities import Base, Book, Download, Favorite, Session, User
+from app.models.entities import (
+    AssistantConversation,
+    AssistantRateLimit,
+    Base,
+    Book,
+    Download,
+    Favorite,
+    Session,
+    User,
+)
 
-__all__ = ["Base", "Book", "Download", "Favorite", "Session", "User"]
+__all__ = ["AssistantConversation", "AssistantRateLimit", "Base", "Book", "Download", "Favorite", "Session", "User"]

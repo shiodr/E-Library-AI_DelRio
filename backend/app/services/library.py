@@ -59,7 +59,7 @@ def require_registered(session: Session) -> uuid.UUID:
 
 def require_book(db: DBSession, book_id: uuid.UUID) -> Book:
     book = db.get(Book, book_id)
-    if not book:
+    if not book or not book.is_active:
         raise HTTPException(404, "Book not found.")
     return book
 
@@ -99,6 +99,8 @@ def record_download(
         allowance = download_allowance(db, session)
         db.commit()
         return existing, book, False, allowance
+    if book.access_type == "paid":
+        raise HTTPException(403, "This book is available from its publisher. In-app downloads are unavailable.")
     allowance = download_allowance(db, session)
     if allowance.remaining == 0:
         raise HTTPException(

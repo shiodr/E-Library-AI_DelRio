@@ -8,7 +8,7 @@ from threading import Barrier
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import delete, select, text
+from sqlalchemy import select, text
 
 from app.main import app
 from app.models import Book, Download, Session, User
@@ -16,30 +16,24 @@ from app.models import Book, Download, Session, User
 
 @pytest.fixture
 def book_ids(db):
-    # Extra records exercise the real ten-book boundary without expanding the production seed.
-    extra = [
-        Book(
-            title=f"Quota fixture {i}",
-            author="Test fixture",
-            category="Test",
-            description="Test-only catalog metadata; no files are served.",
-            source_url=f"https://example.com/fixtures/{uuid.uuid4()}",
-            license_type="Test metadata",
-        )
-        for i in range(4)
-    ]
-    db.add_all(extra)
-    db.commit()
-    ids = list(db.scalars(select(Book.id).order_by(Book.id)))
-    yield [str(value) for value in ids]
-    extra_ids = [book.id for book in extra]
-    db.execute(delete(Download).where(Download.book_id.in_(extra_ids)))
-    db.execute(delete(Book).where(Book.id.in_(extra_ids)))
-    db.commit()
+    ids = list(db.scalars(
+        select(Book.id).where(Book.is_active.is_(True), Book.access_type == "free_to_read")
+        .order_by(Book.id).limit(12)
+    ))
+    assert len(ids) >= 11
+    return [str(value) for value in ids]
 
 
 def download(client, book_id, headers=None):
     return client.post("/api/v1/downloads", json={"book_id": book_id}, headers=headers)
+
+
+def test_paid_listing_cannot_consume_a_download_allowance(client, db):
+    book = db.scalar(select(Book).where(Book.is_active.is_(True), Book.access_type == "paid"))
+    client.post("/api/v1/auth/guest", json={})
+    response = download(client, str(book.id))
+    assert response.status_code == 403 and "publisher" in response.json()["detail"]
+    assert client.get("/api/v1/downloads").json()["allowance"]["used"] == 0
 
 
 def test_guest_limit_is_five_distinct_books(client, book_ids):

@@ -1,13 +1,23 @@
 # E-Library AI
 
+Created by **shio del rio**. Website and Android branding: **E-Library AI by shio del rio**.
+
 Integrated Web and Android E-Library System with an Embedded Agentic AI Assistant.
 IPT102 — Integrative Programming and Emerging Technologies 2.
 
 Phase 1 provides a working React application, a generated Capacitor Android project,
-and one FastAPI/PostgreSQL backend. Authentication and the eight-book starter catalog
-use the real database. The backend now supports saved favorites and download tracking
-with enforced five-book guest and ten-book account limits. Their frontend screens,
-file delivery, AI, and the full 200-book catalog remain planned features.
+and one FastAPI/PostgreSQL backend. Authentication and the 200-title programming catalog
+use the real database. Rust is the largest category with 60 books; 34 online editions
+are free to read and 166 entries link to paid publishers. The backend supports saved favorites and download tracking
+with enforced five-book guest and ten-book account limits. My Library and favorites
+are connected to the shared backend. Website administrators can add, edit, archive,
+and restore books. The embedded assistant retrieves real catalog records and has a
+server-side OpenAI integration; generated AI remains blocked until a provider key
+is configured and verified. Tracking controls are explicitly demonstrations; actual
+file delivery remains planned. See the [Phase 1 handoff](docs/phase1-completion.md)
+for acceptance status, administrator setup, new endpoints, and remaining blockers.
+See the [complete programming catalog](docs/programming-catalog.md)
+for every title, author, access label, and source link.
 
 ## Requirements
 
@@ -109,9 +119,10 @@ adb install -r apps/web/android/app/build/outputs/apk/debug/app-debug.apk
 the checked-in Gradle wrapper's `assembleDebug` on macOS or Windows.
 
 APK output: `apps/web/android/app/build/outputs/apk/debug/app-debug.apk`.
-The debug APK was compiled and installed on an Android 16 ARM64 emulator on
-November 3, 2026. It contains the production React assets and the deployed HTTPS
-backend URL. Size: **4,305,221 bytes**. The build uses Gradle 8.14.3 with JDK 21.
+The current debug APK was rebuilt on November 4, 2026. It contains the creator branding,
+programming catalog, shared catalog assistant, My Library, favorites, encrypted persistent
+Android login, and the deployed HTTPS backend URL. Size: **4,595,620 bytes**. The build uses
+Gradle 8.14.3 with JDK 21.
 [Android setup, APK metadata, and device instructions](docs/android.md).
 
 ## Shared account demonstration
@@ -145,7 +156,9 @@ The backend's separate WASIX dependency lock and local-build deployment path now
 successfully in Wasmer, including real PostgreSQL/authentication/library HTTP checks.
 The backend is deployed at `https://backend-shiodr.wasmer.app` with managed PostgreSQL.
 The website at `https://elibrary-ai.wasmer.app` uses that same HTTPS API. Public
-health/catalog checks and 16 production browser checkpoints passed. The frontend
+health/catalog checks passed. The November 4 catalog update passed 12 production
+browser checks and 15 installed-APK checks; the November 3 authentication baseline
+also passed 16 production browser checks. The frontend
 Wasmer manifest includes the SPA fallback required for direct links and refreshes.
 For a new production build, set
 `VITE_API_BASE_URL=https://backend-shiodr.wasmer.app/api/v1` before rebuilding.

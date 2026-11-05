@@ -16,6 +16,8 @@ os.environ["APP_ENV"] = "test"
 os.environ["SESSION_COOKIE_SECURE"] = "false"
 os.environ["SESSION_COOKIE_SAMESITE"] = "lax"
 os.environ["SESSION_TOKEN_SECRET"] = "test-only-secret-never-use-in-production-123456789"
+os.environ["OPENAI_API_KEY"] = ""
+os.environ["OPENAI_MODEL"] = "gpt-5-mini"
 os.environ["DB_SSL"] = os.environ.get("TEST_DB_SSL", "false")
 os.environ["CORS_ORIGINS"] = (
     '["http://localhost:5173", "http://127.0.0.1:5173", "https://elibrary-ai.wasmer.app", "https://localhost", "capacitor://localhost"]'
@@ -37,7 +39,7 @@ def clean_accounts(migrate_database):
     from app.core.database import engine
 
     with engine.begin() as connection:
-        connection.execute(text("TRUNCATE users, sessions, favorites, downloads CASCADE"))
+        connection.execute(text("TRUNCATE users, sessions, favorites, downloads, assistant_rate_limits CASCADE"))
     yield
 
 
