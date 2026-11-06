@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { Heart, LibraryBig } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useResource } from '../hooks/useCatalog'
 import { api } from '../lib/api'
@@ -15,7 +16,8 @@ export function Library({ favorites = false }: { favorites?: boolean }) {
   const [actionError, setActionError] = useState('')
   const [pending, setPending] = useState('')
   const guest = profile?.session_type === 'guest'
-  const resource = useResource<History>(`${favorites && !guest ? '/favorites' : '/downloads'}?limit=12&offset=${offset}`)
+  useEffect(() => { setOffset(0) }, [favorites, guest])
+  const resource = useResource<History>(favorites && guest ? null : `${favorites ? '/favorites' : '/downloads'}?limit=12&offset=${offset}`)
   async function remove(id: string) {
     setPending(id); setActionError('')
     try { await api(`/favorites/${id}`, { method: 'DELETE' }); resource.retry() }
@@ -24,9 +26,15 @@ export function Library({ favorites = false }: { favorites?: boolean }) {
   }
   return <>
     <div className="page-heading"><div><span className="eyebrow">YOUR PERSONAL READING SPACE</span><h1>{favorites ? 'Favorites' : 'My Library'}<span className="heading-dot">.</span></h1><p>{favorites ? 'Books you saved to your account, shared across your devices.' : 'Your recorded download-request demonstrations.'}</p></div></div>
+    {guest && <section className="empty-state library-empty guest-feature-state">
+      <span className="empty-icon">{favorites ? <Heart size={30} /> : <LibraryBig size={30} />}</span>
+      <h2>{favorites ? 'Create an account to save favorites.' : 'A home for your next chapter.'}</h2>
+      <p>{favorites ? 'Keep the books you love in one place. Sign in to save favorites and find them on web and Android.' : 'Your guest tracking records appear below. Create an account to keep your reading activity and favorites across devices.'}</p>
+      <div className="guest-state-actions"><Link to="/login" state={{ from: favorites ? '/app/favorites' : '/app/library' }} className="button primary">Sign in</Link><Link to="/register" state={{ from: favorites ? '/app/favorites' : '/app/library' }} className="button secondary">Create account</Link><Link to="/app/explore" className="text-link">Continue exploring</Link></div>
+    </section>}
     {!favorites && <div className="library-disclosure"><strong>Download tracking demonstration</strong><p>These records test ownership and the five-book guest / ten-book account limits. No book file is downloaded or delivered.</p>{resource.data?.allowance && <p role="status">{resource.data.allowance.used} of {resource.data.allowance.limit} tracked · {resource.data.allowance.remaining} remaining · {guest ? 'Per guest session' : 'Per registered account'}</p>}</div>}
     {actionError && <ErrorState message={actionError} />}
-    {favorites && guest ? <div className="empty-state"><h2>Create an account to save favorites.</h2><Link to="/register" className="button primary">Create your free account</Link></div>
+    {favorites && guest ? null
       : resource.loading ? <LoadingPage /> : resource.error ? <ErrorState message={resource.error} retry={resource.retry} />
         : resource.data?.items.length ? <div className="book-grid">{resource.data.items.map(entry => <div key={entry.id}>
           {entry.book.is_active === false ? <div className="library-archived"><h3>{entry.book.title}</h3><p>Archived from the public catalog. Your record is preserved.</p></div> : <BookCard book={entry.book} />}

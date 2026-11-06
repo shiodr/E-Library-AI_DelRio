@@ -175,7 +175,7 @@ test('tracking demonstration is idempotent and visible in private history, with 
   expect((await history.json()).total).toBe(1)
 })
 
-test('trusted admin provisioning enables real book management while guest and reader access stay denied', async ({ page }) => {
+test('trusted admin provisioning enables real book management while guest and reader access stay denied', async ({ page }, info) => {
   await startGuest(page)
   await page.goto('/app/admin')
   await expect(page.getByRole('heading', { name: 'Administrator access required.', exact: true })).toBeVisible()
@@ -209,6 +209,20 @@ test('trusted admin provisioning enables real book management while guest and re
     await metric(page, 'Registered users', baseline.registered_users)
     await expect(page.locator('.admin-tracking-disclosure')).toContainText('They do not represent delivered book files.')
     await expect(page.getByRole('region', { name: 'Recent download tracking', exact: true })).toContainText(realBook.title)
+    if (info.project.name === 'desktop') {
+      const originalViewport = page.viewportSize()!
+      for (const theme of ['light', 'dark']) {
+        if (await page.locator('html').getAttribute('data-theme') !== theme) {
+          await page.getByRole('button', { name: `Switch to ${theme} mode` }).click()
+        }
+        for (const width of [1440, 1024, 768, 390, 360]) {
+          await page.setViewportSize({ width, height: 1000 })
+          expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `Admin ${width}px ${theme}`).toBe(true)
+          await page.screenshot({ path: info.outputPath(`admin-${width}-${theme}.png`), fullPage: true, animations: 'disabled' })
+        }
+      }
+      await page.setViewportSize(originalViewport)
+    }
 
     const title = `Phase1 QA metadata ${suffix}`
     const editedTitle = `${title} Revised`

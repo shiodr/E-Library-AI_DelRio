@@ -79,6 +79,42 @@ def verify_password(password: str, password_hash: str) -> bool:
         return False
 
 
+def _write_web_cookie(response: Response, value: str = "", max_age: int = 0, *, partitioned: bool = False):
+    settings = get_settings()
+    response.set_cookie(
+        key=settings.session_cookie_name,
+        value=value,
+        httponly=True,
+        secure=settings.session_cookie_secure,
+        samesite=settings.session_cookie_samesite,
+        max_age=max_age,
+        expires=0 if max_age == 0 else None,
+        path="/api/v1",
+    )
+    if partitioned:
+        # Python 3.13/WASIX cannot use Starlette's Python 3.14-only partitioned argument.
+        # Append the standard flag to this cookie only; retain Starlette's value escaping.
+        name, header = response.raw_headers[-1]
+        response.raw_headers[-1] = (name, header + b"; Partitioned")
+
+
+def set_web_session_cookie(response: Response, token: str, max_age: int):
+    settings = get_settings()
+    partitioned = settings.session_cookie_secure and settings.session_cookie_samesite == "none"
+    if partitioned:
+        # Retire the legacy cookie so two same-name cookie stores cannot select a revoked session.
+        _write_web_cookie(response)
+    _write_web_cookie(response, token, max_age, partitioned=partitioned)
+
+
+def clear_web_session_cookie(response: Response):
+    settings = get_settings()
+    partitioned = settings.session_cookie_secure and settings.session_cookie_samesite == "none"
+    _write_web_cookie(response, partitioned=partitioned)
+    if partitioned:
+        _write_web_cookie(response)
+
+
 def issue_session(
     db: DBSession, request: Request, response: Response, user: User | None, client: str
 ) -> AuthOutput:
@@ -97,15 +133,7 @@ def issue_session(
     db.add(session)
     db.commit()
     if client == "web":
-        response.set_cookie(
-            key=settings.session_cookie_name,
-            value=token,
-            httponly=True,
-            secure=settings.session_cookie_secure,
-            samesite=settings.session_cookie_samesite,
-            max_age=hours * 3600,
-            path="/api/v1",
-        )
+        set_web_session_cookie(response, token, hours * 3600)
     return AuthOutput(
         **profile(db, session).model_dump(),
         access_token=token if client == "android" else None,

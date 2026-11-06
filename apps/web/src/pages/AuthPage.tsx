@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, Eye, EyeOff, ShieldCheck } from 'lucide-react'
+import { ArrowLeft, ArrowRight, BookOpen, Eye, EyeOff, ShieldCheck, Sparkles } from 'lucide-react'
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
@@ -51,10 +51,11 @@ export function AuthPage({ register = false }: { register?: boolean }) {
     finally { setBusy(false) }
   }
   return <div className="auth-page"><header className="landing-header"><Brand /><ThemeToggle /></header>
-    <main className="auth-main"><div className="auth-story"><span className="eyebrow">YOUR NEXT CHAPTER</span><h1>A quieter space.<br />A wider world.</h1><p>Find a new perspective in the pages of a good book.</p><div className="auth-illustration"><span>READ.<br /><em>Wonder.</em><br />REPEAT.</span></div><div className="hero-assurance"><ShieldCheck size={16} />One account. Web and Android.</div></div>
+    <main className="auth-main"><div className="auth-story"><span className="eyebrow">YOUR NEXT CHAPTER</span><h1>A quieter space.<br /><em>A wider world.</em></h1><p>A thoughtful collection for curious developers. Find your next idea, starting with Rust.</p><div className="auth-illustration" aria-hidden="true"><span className="auth-orbit" /><div className="auth-visual-book"><BookOpen size={64} strokeWidth={1.2} /><span>READ.<br /><em>Build.</em><br />REPEAT.</span><Sparkles size={22} /></div><span className="auth-visual-caption">A little reading. A new possibility.</span></div><div className="hero-assurance"><ShieldCheck size={16} />One account. Web and Android.</div></div>
       <div className="auth-form-panel"><Link to="/" className="back-link"><ArrowLeft size={16} />Back to home</Link>
         <span className="eyebrow">{register ? 'BEGIN YOUR STORY' : 'GOOD TO SEE YOU AGAIN'}</span>
         <h2>{register ? 'Make yourself at home.' : 'Welcome back.'}</h2><p className="muted">{register ? 'Create an account for your own reading space.' : 'Sign in and pick up where curiosity takes you.'}</p>
+        {location.state?.notice && <p className="success-notice" role="status">{location.state.notice}</p>}
         <form onSubmit={submit} noValidate aria-label={register ? 'Registration' : 'Login'}>
           {register && <div className="field"><label htmlFor="full_name">Full name</label><input id="full_name" name="full_name" autoComplete="name" maxLength={100} placeholder="Your full name" aria-invalid={!!fields.full_name} aria-describedby={fields.full_name ? 'full-name-error' : undefined} />{fields.full_name && <small id="full-name-error" className="field-error">{fields.full_name}</small>}</div>}
           <div className="field"><label htmlFor="email">Email address</label><input id="email" name="email" type="email" inputMode="email" autoComplete="email" maxLength={254} placeholder="you@university.edu" aria-invalid={!!fields.email} aria-describedby={fields.email ? 'email-error' : undefined} />{fields.email && <small id="email-error" className="field-error">{fields.email}</small>}</div>

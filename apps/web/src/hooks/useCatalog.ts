@@ -2,12 +2,13 @@ import { useEffect, useState } from 'react'
 import { api } from '../lib/api'
 import type { BookPage, Category } from '../types'
 
-export function useResource<T>(path: string) {
+export function useResource<T>(path: string | null) {
   const [data, setData] = useState<T | null>(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
   const [revision, setRevision] = useState(0)
   useEffect(() => {
+    if (path === null) { setData(null); setError(''); setLoading(false); return }
     const controller = new AbortController()
     setLoading(true)
     setError('')

@@ -1,11 +1,12 @@
-import { ArrowRight, BookOpen, LoaderCircle, Moon, RefreshCw, Sun } from 'lucide-react'
+import { ArrowRight, LoaderCircle, Moon, RefreshCw, Sun } from 'lucide-react'
+import { motion } from 'motion/react'
 import { Link } from 'react-router-dom'
 import { useTheme } from '../context/ThemeContext'
 import type { Book } from '../types'
 
 export function Brand() {
   return <Link to="/" className="brand" aria-label="E-Library AI by shio del rio home">
-    <span className="brand-mark"><BookOpen size={23} strokeWidth={1.8} /></span>
+    <span className="brand-mark"><img src="/icon.svg" alt="" width={38} height={38} /></span>
     <span className="brand-wordmark"><span>E-Library<span className="ai-label">AI</span></span><small className="brand-owner">by shio del rio</small></span>
   </Link>
 }
@@ -37,11 +38,14 @@ export function Cover({ book, large = false }: { book: Book; large?: boolean }) 
   </div>
 }
 export function BookCard({ book }: { book: Book }) {
-  return <Link to={`/app/books/${book.id}`} className="book-card">
-    <Cover book={book} />
-    <div className="book-meta"><span className="eyebrow">{book.category}</span><ArrowRight size={16} /></div>
-    <h3>{book.title}</h3><p>{book.author}</p>
-    <span className="book-access">{book.access_type === 'paid' ? 'Paid publisher listing' : 'Free online edition'}</span>
+  const access = book.access_type === 'paid' ? 'Paid publisher listing' : 'Free online edition'
+  return <Link to={`/app/books/${book.id}`} className="book-card" aria-label={`${book.title} by ${book.author}. ${access}`}>
+    <motion.div className="book-card-frame" whileHover={{ y: -6 }} whileTap={{ scale: .985 }} transition={{ duration: .2 }}>
+      <Cover book={book} />
+      <div className="book-meta"><span className="eyebrow">{book.category}</span><span className="book-card-arrow"><ArrowRight size={15} /></span></div>
+      <h3>{book.title}</h3><p>{book.author}</p>
+      <span className="book-access">{access}</span>
+    </motion.div>
   </Link>
 }
 export function BookSkeletons({ count = 4 }: { count?: number }) {

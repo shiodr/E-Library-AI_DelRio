@@ -1,7 +1,9 @@
 from datetime import UTC, datetime, timedelta
 
+import pytest
 from sqlalchemy import select
 
+from app.core.config import get_settings
 from app.models import Session, User
 
 
@@ -23,6 +25,46 @@ def test_registration_and_profile(client, db, account):
     assert me.status_code == 200
     assert me.json()["user"]["id"] == str(user.id)
     assert me.json()["planned_download_limit"] == 10
+
+
+@pytest.mark.parametrize("operation", ["guest", "register", "login"])
+def test_cross_site_web_sessions_use_partitioned_secure_cookie(client, account, monkeypatch, operation):
+    if operation == "login":
+        assert client.post("/api/v1/auth/register", json=account).status_code == 201
+    client.cookies.clear()
+    client.base_url = "https://testserver"
+    monkeypatch.setattr(get_settings(), "session_cookie_secure", True)
+    monkeypatch.setattr(get_settings(), "session_cookie_samesite", "none")
+    data = {} if operation == "guest" else account if operation == "register" else {
+        "email": account["email"], "password": account["password"]
+    }
+    response = client.post(f"/api/v1/auth/{operation}", json=data)
+    assert response.status_code in (200, 201)
+    cookies = response.headers.get_list("set-cookie")
+    assert len(cookies) == 2
+    assert "Max-Age=0" in cookies[0] and "Partitioned" not in cookies[0]
+    assert all(flag in cookies[1] for flag in ["Secure", "HttpOnly", "SameSite=none", "Path=/api/v1", "Partitioned"])
+    assert "Domain=" not in cookies[1]
+    assert response.json()["access_token"] is None
+    assert client.get("/api/v1/auth/me").status_code == 200
+    token = client.cookies.get("elibrary_session")
+    logout = client.post("/api/v1/auth/logout")
+    assert logout.status_code == 204
+    cleared = logout.headers.get_list("set-cookie")
+    assert len(cleared) == 2
+    assert all("Max-Age=0" in header for header in cleared)
+    assert "Partitioned" in cleared[0] and "Partitioned" not in cleared[1]
+    assert not client.cookies.get("elibrary_session")
+    assert client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"}).status_code == 401
+
+
+def test_local_cookie_remains_compatible_and_android_never_requires_cookies(client):
+    web = client.post("/api/v1/auth/guest", json={})
+    assert "Partitioned" not in web.headers["set-cookie"]
+    client.cookies.clear()
+    android = client.post("/api/v1/auth/guest", json={"client": "android"})
+    assert "set-cookie" not in android.headers
+    assert android.json()["access_token"]
 
 
 def test_duplicate_registration_case_insensitive(client, account):

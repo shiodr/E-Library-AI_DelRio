@@ -84,6 +84,189 @@ describe('Phase 1 interfaces', () => {
     expect(await screen.findByRole('heading', { name: /your next chapter/i })).toBeInTheDocument()
   })
 
+  it('opens guest Favorites without requesting private favorites or unrelated download history', async () => {
+    handler = url => url.endsWith('/auth/me') ? json(guest) : json(catalog)
+    open('/app/favorites')
+    expect(await screen.findByRole('heading', { name: /Favorites\s*\./ })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /^sign in$/i })).toHaveAttribute('href', '/login')
+    expect(screen.getByRole('link', { name: /^create account$/i })).toHaveAttribute('href', '/register')
+    expect(screen.getByRole('link', { name: /^continue exploring$/i })).toHaveAttribute('href', '/app/explore')
+    expect(vi.mocked(fetch).mock.calls.some(([url]) => /\/(favorites|downloads)(\?|$)/.test(String(url)))).toBe(false)
+  })
+
+  it.each([401, 403])('keeps guest navigation available after a feature responds with %i', async status => {
+    handler = url => {
+      if (url.endsWith('/auth/me')) return json(guest)
+      if (url.includes('/downloads?')) return json({ detail: 'Tracking is unavailable for this request.' }, status)
+      if (url.endsWith('/assistant/status')) return json({ generation_available: false, provider: 'openai', model: null })
+      if (url.endsWith('/categories')) return json([])
+      return json(catalog)
+    }
+    const user = userEvent.setup()
+    open('/app/favorites')
+    expect(await screen.findByRole('heading', { name: /Favorites\s*\./ })).toBeInTheDocument()
+    await user.click(screen.getAllByRole('link', { name: 'My Library' })[0])
+    expect(await screen.findByRole('alert')).toHaveTextContent('Tracking is unavailable for this request.')
+    await user.click(screen.getAllByRole('link', { name: 'AI Assistant' })[0])
+    expect(await screen.findByRole('textbox', { name: 'Ask the library' })).toBeEnabled()
+    await user.click(screen.getAllByRole('link', { name: 'Explore books' })[0])
+    expect(await screen.findByRole('searchbox', { name: 'Search books' })).toBeInTheDocument()
+    expect(screen.getByText('Guest reader')).toBeInTheDocument()
+    expect(screen.queryByRole('form', { name: 'Login' })).not.toBeInTheDocument()
+    const profileRequests = vi.mocked(fetch).mock.calls.filter(([url]) => String(url).endsWith('/auth/me'))
+    expect(profileRequests.length).toBe(status === 401 ? 2 : 1)
+  })
+
+  it('offers in-page guest recovery after confirmed session expiry', async () => {
+    let profileChecks = 0
+    let recovered = false
+    handler = url => {
+      if (url.endsWith('/auth/me')) return ++profileChecks === 1 || recovered ? json(guest) : json({ detail: 'Session expired.' }, 401)
+      if (url.includes('/downloads?')) return recovered ? json(catalog) : json({ detail: 'Session expired.' }, 401)
+      if (url.endsWith('/auth/guest')) { recovered = true; return json(guest, 201) }
+      return json(catalog)
+    }
+    open('/app/library')
+    expect(await screen.findByRole('heading', { name: 'Your guest session ended.' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Continue as Guest' })).toBeEnabled()
+    expect(screen.queryByRole('form', { name: 'Login' })).not.toBeInTheDocument()
+    expect(profileChecks).toBe(2)
+    await userEvent.click(screen.getByRole('button', { name: 'Continue as Guest' }))
+    expect(await screen.findByRole('heading', { name: /My Library\s*\./ })).toBeInTheDocument()
+    expect(screen.getByText('Guest reader')).toBeInTheDocument()
+  })
+
+  it('preserves a registered session when only a feature request returns 401', async () => {
+    handler = url => url.endsWith('/auth/me') ? json(member) : url.includes('/favorites?') ? json({ detail: 'Favorites temporarily unavailable.' }, 401) : json(catalog)
+    open('/app/favorites')
+    expect(await screen.findByRole('alert')).toHaveTextContent('Favorites temporarily unavailable.')
+    await waitFor(() => expect(vi.mocked(fetch).mock.calls.filter(([url]) => String(url).endsWith('/auth/me'))).toHaveLength(2))
+    expect(screen.getByText('Alex', { exact: true })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /Favorites\s*\./ })).toBeInTheDocument()
+    expect(screen.queryByRole('form', { name: 'Login' })).not.toBeInTheDocument()
+  })
+
+  it('keeps the assistant interface open with sign-in actions when guest access is denied', async () => {
+    handler = url => {
+      if (url.endsWith('/auth/me')) return json(guest)
+      if (url.endsWith('/assistant/status')) return json({ detail: 'An account is required for this assistant.' }, 403)
+      return json(catalog)
+    }
+    open('/app/assistant')
+    expect(await screen.findByRole('link', { name: /^sign in$/i })).toHaveAttribute('href', '/login')
+    expect(screen.getByRole('link', { name: /^create account$/i })).toHaveAttribute('href', '/register')
+    expect(screen.getByRole('heading', { name: /Your library assistant/ })).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Ask the library' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Send question' })).toBeDisabled()
+    expect(screen.getByText('Guest reader')).toBeInTheDocument()
+    expect(screen.queryByRole('form', { name: 'Login' })).not.toBeInTheDocument()
+    expect(vi.mocked(fetch).mock.calls.filter(([url]) => String(url).endsWith('/auth/me'))).toHaveLength(1)
+  })
+
+  it('keeps assistant chat permission denial in-page without an unusable retry action', async () => {
+    handler = url => {
+      if (url.endsWith('/auth/me')) return json(guest)
+      if (url.endsWith('/assistant/status')) return json({ generation_available: false, provider: 'openai', model: null })
+      if (url.endsWith('/assistant/chat')) return json({ detail: 'This session cannot ask assistant questions.' }, 403)
+      return json(catalog)
+    }
+    open('/app/assistant')
+    await userEvent.type(await screen.findByRole('textbox', { name: 'Ask the library' }), 'Find Rust books')
+    await userEvent.click(screen.getByRole('button', { name: 'Send question' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('This session cannot ask assistant questions.')
+    expect(screen.getByRole('link', { name: /^sign in$/i })).toHaveAttribute('href', '/login')
+    expect(screen.getByRole('textbox', { name: 'Ask the library' })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: 'Retry question' })).not.toBeInTheDocument()
+    expect(screen.getByText('Guest reader')).toBeInTheDocument()
+    expect(screen.queryByRole('form', { name: 'Login' })).not.toBeInTheDocument()
+  })
+
+  it('does not discard a pending login after an older guest feature request returns 401', async () => {
+    let finishLogin!: (response: Response) => void
+    const original = handler
+    vi.stubGlobal('fetch', vi.fn((url: string, options?: RequestInit) => {
+      if (url.endsWith('/auth/me')) return Promise.resolve(json(guest))
+      if (url.endsWith('/auth/login')) return new Promise<Response>(resolve => { finishLogin = resolve })
+      if (url.endsWith('/downloads')) return Promise.resolve(json({ detail: 'Previous guest request expired.' }, 401))
+      return Promise.resolve(original(url, options))
+    }))
+    const user = userEvent.setup()
+    open('/app/favorites')
+    await user.click(await screen.findByRole('link', { name: /^sign in$/i }))
+    await user.type(screen.getByLabelText('Email address'), 'alex@example.com')
+    await user.type(screen.getByLabelText('Password', { exact: true }), 'a-long-test-passphrase')
+    await user.click(screen.getByRole('button', { name: 'Log in' }))
+    await waitFor(() => expect(finishLogin).toBeTypeOf('function'))
+    await act(async () => {
+      await expect(apiModule.api('/downloads')).rejects.toThrow('Previous guest request expired.')
+    })
+    await act(async () => { finishLogin(json(member)) })
+    expect(await screen.findByText('Alex', { exact: true })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /Favorites\s*\./ })).toBeInTheDocument()
+    expect(screen.queryByRole('form', { name: 'Login' })).not.toBeInTheDocument()
+    expect(vi.mocked(fetch).mock.calls.filter(([url]) => String(url).endsWith('/auth/me'))).toHaveLength(1)
+  })
+
+  it('preserves identity when session validation has a network failure and permits feature retry', async () => {
+    let profileChecks = 0
+    let featureUnavailable = true
+    handler = url => {
+      if (url.endsWith('/auth/me')) {
+        if (++profileChecks > 1) throw new TypeError('Network unavailable during session validation')
+        return json(member)
+      }
+      if (url.includes('/favorites?') && featureUnavailable) return json({ detail: 'Favorites temporarily unavailable.' }, 401)
+      return json(catalog)
+    }
+    vi.stubGlobal('fetch', vi.fn(async (url: string, options?: RequestInit) => handler(url, options)))
+    open('/app/favorites')
+    expect(await screen.findByRole('alert')).toHaveTextContent('Favorites temporarily unavailable.')
+    await waitFor(() => expect(profileChecks).toBe(2))
+    expect(screen.getByText('Alex', { exact: true })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /Favorites\s*\./ })).toBeInTheDocument()
+    expect(screen.queryByRole('form', { name: 'Login' })).not.toBeInTheDocument()
+    featureUnavailable = false
+    await userEvent.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(await screen.findByRole('heading', { name: 'No favorites yet.' })).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(screen.getByText('Alex', { exact: true })).toBeInTheDocument()
+  })
+
+  it('requires sign-in with an expiry notice when the registered session is confirmed expired', async () => {
+    let profileChecks = 0
+    handler = url => {
+      if (url.endsWith('/auth/me')) return ++profileChecks === 1 ? json(member) : json({ detail: 'Session expired.' }, 401)
+      if (url.includes('/favorites?')) return json({ detail: 'Session expired.' }, 401)
+      return json(catalog)
+    }
+    open('/app/favorites')
+    expect(await screen.findByRole('form', { name: 'Login' })).toBeInTheDocument()
+    expect(screen.getByText(/your session has expired/i)).toBeInTheDocument()
+    expect(screen.queryByText('Alex', { exact: true })).not.toBeInTheDocument()
+    expect(profileChecks).toBe(2)
+  })
+
+  it('restores a registered cookie session after the application remounts', async () => {
+    handler = url => url.endsWith('/auth/me') ? json(member) : json(catalog)
+    const first = open('/app/favorites')
+    expect(await screen.findByRole('heading', { name: /Favorites\s*\./ })).toBeInTheDocument()
+    first.unmount()
+    open('/app/library')
+    expect(await screen.findByRole('heading', { name: /My Library\s*\./ })).toBeInTheDocument()
+    expect(screen.getByText('Alex', { exact: true })).toBeInTheDocument()
+    const profileRequests = vi.mocked(fetch).mock.calls.filter(([url]) => String(url).endsWith('/auth/me'))
+    expect(profileRequests).toHaveLength(2)
+    expect(profileRequests.every(([, options]) => options?.credentials === 'include')).toBe(true)
+    expect(screen.queryByRole('form', { name: 'Login' })).not.toBeInTheDocument()
+  })
+
+  it('keeps administrator data protected from guests', async () => {
+    handler = url => url.endsWith('/auth/me') ? json(guest) : json(catalog)
+    open('/app/admin')
+    expect(await screen.findByRole('heading', { name: 'Administrator access required.' })).toBeInTheDocument()
+    expect(vi.mocked(fetch).mock.calls.some(([url]) => String(url).includes('/admin/'))).toBe(false)
+  })
+
   it('preserves the intended route through registration', async () => {
     const original = handler
     handler = url => url.endsWith('/auth/register') ? json(member, 201) : original(url)

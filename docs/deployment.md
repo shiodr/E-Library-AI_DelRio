@@ -76,9 +76,15 @@ the server certificate; prefer a provider CA certificate when one is available.
 Other PostgreSQL providers retain `DB_SSL_VERIFY=true`, the default.
 See [Wasmer database TLS and connection variables](https://docs.wasmer.io/edge/learn/databases/).
 
-`SameSite=None` supports separate HTTPS frontend/API sites. Some browsers still block
-third-party cookies; verify the actual pair. Same-site custom domains are preferable
-when that applies. Android bearer sessions do not rely on browser cookies. Add the
+`SameSite=None` alone does not bypass third-party-cookie blocking. The API now adds
+`Partitioned` automatically when `SESSION_COOKIE_SECURE=true` and
+`SESSION_COOKIE_SAMESITE=none`. The HttpOnly session cookie is scoped to the API host
+and the frontend's top-level site, so supporting browsers can retain it with ordinary
+third-party cookies blocked. Login retires the legacy unpartitioned cookie; logout
+clears both cookie stores and revokes the server session. No token enters Web Storage.
+See [CHIPS browser support and behavior](https://privacysandbox.google.com/cookies/chips).
+Older browsers without partitioned-cookie support still require a same-site custom
+domain or same-origin API proxy. Android bearer sessions do not rely on browser cookies. Add the
 API's own exact HTTPS origin to CORS if using authenticated mutations through `/docs`.
 
 ## 2. Build locally for WASIX

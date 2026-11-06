@@ -1,6 +1,6 @@
 [package]
 name = "shiodr/elibrary-ai-web"
-version = "0.1.6"
+version = "0.1.9"
 description = "E-Library AI shared React frontend"
 entrypoint = "serve"
 
@@ -14,5 +14,6 @@ public = "dist"
 name = "serve"
 module = "sharrattj/static-web-server:webserver"
 runner = "https://webc.org/runner/wasi"
+
 [command.annotations.wasi]
 env = ["SERVER_ROOT=/public", "SERVER_FALLBACK_PAGE=/public/index.html"]

@@ -6,11 +6,11 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session as DBSession
 
-from app.core.config import get_settings
 from app.core.database import get_db
 from app.models import User
 from app.schemas.auth import AuthOutput, ClientInput, LoginInput, ProfileOutput, RegisterInput
 from app.services.auth import (
+    clear_web_session_cookie,
     dummy_hash,
     hasher,
     issue_session,
@@ -66,13 +66,6 @@ def logout(request: Request, db: Database):
     session = lock_session(db, require_session(request, db))
     session.revoked_at = datetime.now(UTC)
     db.commit()
-    settings = get_settings()
     response = Response(status_code=204)
-    response.delete_cookie(
-        settings.session_cookie_name,
-        path="/api/v1",
-        secure=settings.session_cookie_secure,
-        httponly=True,
-        samesite=settings.session_cookie_samesite,
-    )
+    clear_web_session_cookie(response)
     return response

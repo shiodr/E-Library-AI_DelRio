@@ -6,6 +6,7 @@ import App from './App'
 import { AuthProvider } from './context/AuthContext'
 import { ThemeProvider } from './context/ThemeContext'
 import './styles.css'
+import './modern.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode><BrowserRouter><MotionConfig reducedMotion="user"><ThemeProvider><AuthProvider><App /></AuthProvider></ThemeProvider></MotionConfig></BrowserRouter></StrictMode>,

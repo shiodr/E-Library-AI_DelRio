@@ -9,6 +9,7 @@
     "preview": "vite preview --host 127.0.0.1",
     "test": "vitest run",
     "test:e2e": "playwright test",
+    "test:cross-site": "npm run build && playwright test --config playwright.cross-site.config.ts",
     "android:add": "cap add android",
     "android:sync": "node scripts/check-native-api.mjs && npm run build && cap sync android",
     "android:open": "cap open android",

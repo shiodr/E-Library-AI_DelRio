@@ -19,6 +19,8 @@ export class ApiError extends Error {
   constructor(message: string, public status: number) { super(message) }
 }
 
+export function isCurrentSession(version: number) { return version === sessionVersion }
+
 function useStorage<T>(operation: () => Promise<T>): Promise<T> {
   const next = storageOperation.catch(() => {}).then(operation)
   storageOperation = next
@@ -82,9 +84,9 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
     const message = typeof data.detail === 'string'
       ? data.detail
       : response.status === 422 ? 'Check your details and try again.' : 'Something went wrong. Please try again.'
-    // Session refresh and logout own their redirects; stale responses cannot clear a newer session.
-    if (response.status === 401 && !['/auth/login', '/auth/me', '/auth/logout'].includes(path)
-      && requestVersion === sessionVersion) window.dispatchEvent(new Event('session-expired'))
+    // A feature denial is not proof of expiry. AuthContext verifies the current session first.
+    if (response.status === 401 && !path.startsWith('/auth/') && !options.signal?.aborted
+      && isCurrentSession(requestVersion)) window.dispatchEvent(new CustomEvent('session-check-required', { detail: requestVersion }))
     throw new ApiError(message, response.status)
   }
   return response.status === 204 ? undefined as T : response.json() as Promise<T>

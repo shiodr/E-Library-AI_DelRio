@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="128"
+    android:viewportHeight="128">
+    <!-- Keep the mark inside the adaptive icon's central safe area. -->
+    <group android:translateX="20.48" android:translateY="20.48" android:scaleX="0.68" android:scaleY="0.68">
+        <path android:fillColor="#00000000" android:strokeColor="#FFFFFF" android:strokeWidth="5.4" android:strokeLineCap="round" android:strokeLineJoin="round"
+            android:pathData="M64,48C53,39 39,36 25,40v46c14,-4 28,-1 39,8c11,-9 25,-12 39,-8V47M64,48v46" />
+        <path android:fillColor="#00000000" android:strokeColor="#FFFFFF" android:strokeWidth="5.4" android:strokeLineCap="round" android:strokeLineJoin="round"
+            android:pathData="M38,54c5,0 10,1 14,4M38,68c5,0 10,1 14,4M76,60c5,-3 10,-4 15,-4M76,74c5,-3 10,-4 15,-4" />
+        <path android:fillColor="#FFFFFF" android:pathData="M94,16l3.5,9.5L107,29l-9.5,3.5L94,42l-3.5,-9.5L81,29l9.5,-3.5Z" />
+    </group>
+</vector>

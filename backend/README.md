@@ -131,7 +131,11 @@ Rolling back to the earlier SHA-only backend requires HMAC sessions to sign in a
 existing unprefixed sessions remain compatible.
 
 Browser cookies are HttpOnly; production requires Secure. A separate HTTPS API uses
-`SESSION_COOKIE_SAMESITE=none`. Android restores its bearer token from Android
+`SESSION_COOKIE_SAMESITE=none`. With this secure cross-site configuration, the API
+automatically adds `Partitioned` so supporting browsers retain sessions when ordinary
+third-party cookies are blocked. Legacy cookie cleanup and logout cover both stores.
+Same-site custom domains remain an option for older browsers without CHIPS support.
+Android restores its bearer token from Android
 Keystore-encrypted private storage before validating the session with the backend.
 Logout, expiry, or revocation clears that saved credential. CORS permits the exact deployed website and documented
 local/Capacitor origins; untrusted mutation origins are rejected independently of CORS.

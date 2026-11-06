@@ -1,8 +1,9 @@
-import { BookOpen, MessageCircle, Plus, RefreshCw, Send, Sparkles } from 'lucide-react'
+import { BookOpen, MessageCircle, Plus, RefreshCw, Send, ShieldCheck, Sparkles } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent, KeyboardEvent } from 'react'
+import { Link } from 'react-router-dom'
 import { BookCard, Spinner } from '../components/ui'
-import { api, post } from '../lib/api'
+import { api, ApiError, post } from '../lib/api'
 import type { Book } from '../types'
 import './assistant.css'
 
@@ -46,6 +47,7 @@ export function Assistant() {
   const [conversationId, setConversationId] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
   const [error, setError] = useState('')
+  const [restricted, setRestricted] = useState(false)
   const [failedRequest, setFailedRequest] = useState<{ text: string; userId: number } | null>(null)
   const nextId = useRef(0)
   const sending = useRef(false)
@@ -62,9 +64,12 @@ export function Assistant() {
     setCheckingStatus(true)
     setStatusError('')
     api<AssistantStatus>('/assistant/status', { signal: controller.signal })
-      .then(result => { if (!controller.signal.aborted) setStatus(result) })
+      .then(result => { if (!controller.signal.aborted) { setStatus(result); setRestricted(false) } })
       .catch(reason => {
-        if (!controller.signal.aborted) setStatusError(reason instanceof Error ? reason.message : 'Unable to check AI availability.')
+        if (!controller.signal.aborted) {
+          setStatusError(reason instanceof Error ? reason.message : 'Unable to check AI availability.')
+          setRestricted(reason instanceof ApiError && reason.status === 403)
+        }
       })
       .finally(() => { if (!controller.signal.aborted) setCheckingStatus(false) })
     return () => controller.abort()
@@ -78,7 +83,7 @@ export function Assistant() {
 
   async function send(text: string, retryUserId?: number) {
     const question = text.trim()
-    if (!question || question.length > 1000 || sending.current) return
+    if (!question || question.length > 1000 || sending.current || restricted) return
     sending.current = true
     setPending(true)
     setError('')
@@ -103,6 +108,7 @@ export function Assistant() {
       setMessages(previous => [...previous, answer].slice(-24))
     } catch (reason) {
       if (!mounted.current) return
+      setRestricted(reason instanceof ApiError && reason.status === 403)
       setError(reason instanceof Error ? reason.message : 'Unable to get a response. Please try again.')
       setFailedRequest({ text: question, userId })
       setMessages(previous => previous.map(message => message.id === userId ? { ...message, failed: true } : message))
@@ -145,12 +151,13 @@ export function Assistant() {
         <div><h2>E-Library Assistant</h2><p>One catalog. Website and Android.</p></div>
         <span className="library-chat-mode">{checkingStatus && !status ? 'Checking availability' : status?.generation_available ? 'AI configured' : status ? 'Catalog retrieval' : 'Availability unknown'}</span>
       </header>
+      {restricted && <div className="library-chat-disclosure" role="status"><ShieldCheck size={18} /><span>This session cannot use the assistant. <Link className="text-link" to="/login" state={{ from: '/app/assistant' }}>Sign in</Link> or <Link className="text-link" to="/register" state={{ from: '/app/assistant' }}>Create account</Link>. You can continue exploring the catalog.</span></div>}
 
       {status && !status.generation_available && <p className="library-chat-disclosure" role="status">
         <BookOpen size={18} /><span>Catalog retrieval is available. AI generation is not configured.</span>
       </p>}
       {statusError && <div className="library-chat-status-error" role="status">
-        <p>AI availability could not be checked. You can still try a catalog question.</p>
+        <p>{restricted ? statusError : 'AI availability could not be checked. You can still try a catalog question.'}</p>
         <button className="text-link" onClick={() => setStatusRevision(value => value + 1)} disabled={checkingStatus}><RefreshCw size={14} />Check again</button>
       </div>}
 
@@ -160,13 +167,13 @@ export function Assistant() {
           <h3>What would you like to learn?</h3>
           <p>Ask about a language, author, topic, or experience level. Recommendations link to books in this library.</p>
           <div className="library-chat-suggestions" aria-label="Suggested questions">{suggestions.map(question =>
-            <button key={question} onClick={() => void send(question)} disabled={pending}>{question}<Send size={14} /></button>,
+            <button key={question} onClick={() => void send(question)} disabled={pending || restricted}>{question}<Send size={14} /></button>,
           )}</div>
         </div>}
         {messages.map(message => <article className={`library-chat-message library-chat-message-${message.role}`} key={message.id} aria-label={`${message.role === 'user' ? 'Your' : 'Assistant'} message`}>
           <span className="library-chat-speaker">{message.role === 'user' ? 'You' : 'Library assistant'}</span>
           <p className="library-chat-text">{message.text}</p>
-          {message.failed && <span className="library-chat-failed">Response unavailable. Retry below.</span>}
+          {message.failed && <span className="library-chat-failed">{restricted ? 'This session does not have assistant access.' : 'Response unavailable. Retry below.'}</span>}
           {!!message.books?.length && <div className="library-chat-books" aria-label="Catalog recommendations">{message.books.map(book => <BookCard book={book} key={book.id} />)}</div>}
           {message.role === 'assistant' && <span className="library-chat-response-mode">{message.mode === 'llm' ? 'AI response grounded in catalog records' : message.mode === 'provider_error' ? 'Catalog retrieval · AI generation temporarily unavailable' : 'Catalog retrieval · AI generation not configured'}</span>}
         </article>)}
@@ -175,15 +182,15 @@ export function Assistant() {
       </div>
 
       {error && <div className="library-chat-error" role="alert"><p>{error}</p>
-        {failedRequest && <button className="button secondary small" disabled={pending} onClick={() => void send(failedRequest.text, failedRequest.userId)}><RefreshCw size={15} />Retry question</button>}
+        {failedRequest && !restricted && <button className="button secondary small" disabled={pending} onClick={() => void send(failedRequest.text, failedRequest.userId)}><RefreshCw size={15} />Retry question</button>}
       </div>}
 
       <form className="library-chat-form" onSubmit={submit}>
         <label htmlFor="library-question">Ask the library</label>
         <div className="library-chat-input-row"><textarea id="library-question" value={draft} maxLength={1000} rows={2}
           placeholder="Try: Which Rust books are suitable for beginners?" onChange={event => setDraft(event.target.value)}
-          onKeyDown={keyDown} aria-describedby="library-question-help" disabled={pending} />
-          <button className="button primary" disabled={pending || !draft.trim()} aria-label="Send question">{pending ? <Spinner /> : <Send size={18} />}<span>Send</span></button>
+          onKeyDown={keyDown} aria-describedby="library-question-help" disabled={pending || restricted} />
+          <button className="button primary" disabled={pending || restricted || !draft.trim()} aria-label="Send question">{pending ? <Spinner /> : <Send size={18} />}<span>Send</span></button>
         </div>
         <div className="library-chat-form-hint"><p id="library-question-help">Enter to send · Shift+Enter for a new line. Avoid sharing personal or sensitive details.</p><span aria-label={`${draft.length} of 1000 characters`}>{draft.length}/1000</span></div>
       </form>
