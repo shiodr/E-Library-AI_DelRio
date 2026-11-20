@@ -6,7 +6,7 @@ import type { Book } from '../types'
 
 export function Brand() {
   return <Link to="/" className="brand" aria-label="E-Library AI by shio del rio home">
-    <span className="brand-mark"><img src="/icon.svg" alt="" width={38} height={38} /></span>
+    <span className="brand-mark"><img src="/icon.svg?v=purple" alt="" width={38} height={38} /></span>
     <span className="brand-wordmark"><span>E-Library<span className="ai-label">AI</span></span><small className="brand-owner">by shio del rio</small></span>
   </Link>
 }
