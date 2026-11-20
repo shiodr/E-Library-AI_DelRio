@@ -5,6 +5,12 @@ Created by **shio del rio**. Website and Android branding: **E-Library AI by shi
 Integrated Web and Android E-Library System with an Embedded Agentic AI Assistant.
 IPT102 — Integrative Programming and Emerging Technologies 2.
 
+Current status: [November 20 Phase 1 / Phase 2 audit](docs/phase1-phase2-audit.md).
+Official Phase 1 functionality passes. Most Phase 2 modules are implemented;
+AI/tool demonstration and presentation/submission evidence remain open. Full agent
+and file-delivery features belong to final Phase 3. The audit records the official
+rubric comparison, conservative cleanup, and fresh verification.
+
 Phase 1 provides a working React application, a generated Capacitor Android project,
 and one FastAPI/PostgreSQL backend. Authentication and the 200-title programming catalog
 use the real database. Rust is the largest category with 60 books; 34 online editions

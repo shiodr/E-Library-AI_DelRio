@@ -3,6 +3,11 @@
 Updated November 5, 2026 (Asia/Manila). Results below describe executed checks;
 physical Android device testing is distinguished from browser and emulator results.
 
+Official rubric alignment, November 20: see the [current audit](phase1-phase2-audit.md)
+for fresh results and phase-specific acceptance. Phase 1 requires planned AI architecture,
+not live generation. Historical "Phase 1 incomplete" labels below referred to an expanded
+internal implementation target and must not be read as the official foundation verdict.
+
 ## Expanded Phase 1 implementation — November 4–5, 2026
 
 The [current handoff](phase1-completion.md) records implemented features, endpoints,

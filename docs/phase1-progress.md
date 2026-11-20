@@ -2,8 +2,10 @@
 
 For the current implementation against the expanded Phase 1 checklist, use the
 [November 5 completion handoff](phase1-completion.md). Administrator book management,
-assistant retrieval, and tracking UI are now implemented. Overall Phase 1 remains
-incomplete while live LLM generation or any final acceptance gate is unverified.
+assistant retrieval, and tracking UI are now implemented. The official rubric supplied
+November 20 requires planned AI architecture, not live generation, in Phase 1. Its
+functional foundation checklist is met; presentation/submission evidence is separate.
+See the [current official-rubric audit](phase1-phase2-audit.md) for Phase 2 and final gaps.
 The foundation results below are historical and do not establish completion of
 the later checklist.
 

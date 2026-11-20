@@ -218,7 +218,7 @@ button, a, input, select { -webkit-tap-highlight-color: transparent; }
 .sidebar-collapsed .assistant-launcher span { display: none; }
 
 /* Premium admin and assistant surfaces without changing their contracts. */
-.admin-metric, .admin-management, .admin-activity, .library-chat, .assistant-panel { border-color: var(--border); background: var(--surface); box-shadow: var(--shadow-sm); backdrop-filter: blur(16px); }
+.admin-metric, .admin-management, .admin-activity, .library-chat { border-color: var(--border); background: var(--surface); box-shadow: var(--shadow-sm); backdrop-filter: blur(16px); }
 .admin-metric:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); }
 .admin-metric strong { color: var(--accent); }
 .library-chat-disclosure, .library-disclosure, .admin-tracking-disclosure { color: var(--muted); }

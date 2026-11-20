@@ -2,7 +2,14 @@
 
 Updated November 5, 2026 (Asia/Manila).
 
-**Overall status: incomplete because live AI generation remains blocked.**
+This is the historical implementation handoff. The [November 20 audit](phase1-phase2-audit.md)
+records current code, fresh tests/CI, safe cleanup, and the distinction between the
+official Phase 1 foundation checklist and later Phase 2/final acceptance. The supplied
+exam document requires planned AI architecture in Phase 1, not live generation.
+
+**Expanded implementation status: live AI generation remains blocked.** This is not
+an official Phase 1 foundation blocker; its functional checklist is met. Actual
+presentation/submission completion requires separate evidence.
 The implemented catalog retrieval works without an AI key and is explicitly labeled as retrieval,
 not an operational LLM. The OpenAI integration is implemented, but a successful live provider
 request is not claimed. The owner chose to leave generation blocked for now. Backend,
@@ -273,7 +280,8 @@ favorites/history, idempotent usage, restored/archived catalog visibility, real 
 context and network-error retry, hardware Back, visible keyboard, safe-area layout, and the
 same original session after a full process restart. This is not physical-phone proof.
 
-Phase 1 remains incomplete while required AI generation is blocked. No paid provider call
+The expanded AI implementation remains incomplete while generation is blocked; this
+must not be reclassified as a Phase 1 planned-architecture failure. No paid provider call
 was made. When generation is authorized, configure the backend key, redeploy, and verify
 actual `mode: "llm"` replies on both platforms. Install this APK over the existing Samsung
 application and repeat the hardware demonstration separately. See [testing](testing.md)
