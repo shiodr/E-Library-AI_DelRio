@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { MotionConfig } from 'motion/react'
@@ -92,6 +92,30 @@ describe('Phase 1 interfaces', () => {
     expect(screen.getByRole('link', { name: /^create account$/i })).toHaveAttribute('href', '/register')
     expect(screen.getByRole('link', { name: /^continue exploring$/i })).toHaveAttribute('href', '/app/explore')
     expect(vi.mocked(fetch).mock.calls.some(([url]) => /\/(favorites|downloads)(\?|$)/.test(String(url)))).toBe(false)
+  })
+
+  it('keeps navigation selection and keyboard focus accessible with a decorative glass pill', async () => {
+    handler = url => url.endsWith('/auth/me') ? json(guest) : url.endsWith('/categories') ? json([]) : json(catalog)
+    const user = userEvent.setup()
+    open('/app')
+    await screen.findByText('Guest reader')
+    const sidebar = within(screen.getByRole('navigation', { name: 'Main navigation' }))
+    const mobile = within(screen.getByRole('navigation', { name: 'Mobile navigation' }))
+    const favorites = sidebar.getByRole('link', { name: 'Favorites' })
+    favorites.focus()
+    await user.keyboard('{Enter}')
+    await screen.findByRole('heading', { name: /Favorites\s*\./ })
+    expect(favorites).toHaveFocus()
+    for (const navigation of [sidebar, mobile]) {
+      const selected = navigation.getByRole('link', { name: 'Favorites' })
+      expect(selected).toHaveAttribute('aria-current', 'page')
+      expect(selected.querySelector('.nav-glass-pill')).toHaveAttribute('aria-hidden', 'true')
+      expect(navigation.getByRole('link', { name: 'Overview' })).not.toHaveAttribute('aria-current')
+    }
+    await user.tab()
+    expect(sidebar.getByRole('link', { name: 'AI Assistant' })).toHaveFocus()
+    await user.click(screen.getByRole('button', { name: 'Collapse sidebar' }))
+    expect(sidebar.getByRole('link', { name: 'Favorites' })).toHaveAttribute('aria-current', 'page')
   })
 
   it.each([401, 403])('keeps guest navigation available after a feature responds with %i', async status => {
