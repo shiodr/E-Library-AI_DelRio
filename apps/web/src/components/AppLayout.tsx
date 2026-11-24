@@ -26,11 +26,14 @@ export function AppLayout() {
   const [collapsed, setCollapsed] = useState(false)
   const navigationId = useId()
   const guest = profile?.session_type === 'guest'
-  const section = location.pathname.includes('/explore') ? 'Explore books'
+  const section = location.pathname.includes('/explore') ? 'Explore'
     : location.pathname.includes('/library') ? 'My Library'
       : location.pathname.includes('/favorites') ? 'Favorites'
         : location.pathname.includes('/assistant') ? 'AI Assistant'
-          : location.pathname.includes('/admin') ? 'Administration' : location.pathname.includes('/books/') ? 'Book details' : 'Overview'
+          : location.pathname.startsWith('/app/admin/submissions') ? 'Review submissions'
+            : location.pathname.includes('/admin') ? 'Administration'
+              : location.pathname.startsWith('/app/submissions') ? 'Author submissions'
+                : location.pathname.includes('/books/') ? 'Book details' : 'Overview'
   async function signOut() {
     setBusy(true)
     try { await logout(() => navigate('/', { replace: true })) }
@@ -64,7 +67,7 @@ export function AppLayout() {
       </header>
       {error && <div className="inline-error" role="alert">{error}</div>}
       {guest && <div className="guest-banner"><span><span className="status-dot" />You’re exploring as a guest.</span>
-        <span className="guest-allowance">{profile?.downloads_remaining ?? 5} books remaining in tracking demo</span>
+        <span className="guest-allowance">{profile?.downloads_remaining ?? 5} download slots remaining</span>
         <NavLink to="/register">Create your free account <span aria-hidden="true">↗</span></NavLink>
       </div>}
       {!native && profile?.user?.role === 'admin' && <div className="admin-access"><NavLink className="text-link" to="/app/admin">Administration</NavLink></div>}

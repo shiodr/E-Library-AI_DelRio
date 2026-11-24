@@ -1,9 +1,10 @@
 import os
+import uuid
 from pathlib import Path
 
 import pytest
 from alembic.config import Config
-from sqlalchemy import make_url, text
+from sqlalchemy import delete, make_url, select, text
 
 from alembic import command
 
@@ -77,3 +78,31 @@ def test_migrations_reversible():
     from app.core.database import engine
 
     return engine
+
+
+@pytest.fixture
+def administrator(client, db, account):
+    from app.models import User
+
+    result = client.post("/api/v1/auth/register", json=account)
+    assert result.status_code == 201
+    user = db.get(User, uuid.UUID(result.json()["user"]["id"]))
+    user.role = "admin"
+    db.commit()
+    assert client.get("/api/v1/auth/me").json()["user"]["role"] == "admin"
+    return client
+
+
+@pytest.fixture
+def managed_catalog(db):
+    from app.models import Book, Download, Favorite
+
+    category = "Admin test " + uuid.uuid4().hex
+    yield category
+    db.rollback()
+    ids = list(db.scalars(select(Book.id).where(Book.category == category)))
+    if ids:
+        db.execute(delete(Favorite).where(Favorite.book_id.in_(ids)))
+        db.execute(delete(Download).where(Download.book_id.in_(ids)))
+        db.execute(delete(Book).where(Book.id.in_(ids)))
+        db.commit()

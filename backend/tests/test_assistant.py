@@ -83,6 +83,17 @@ def test_author_search_does_not_confuse_two_people_with_the_same_surname(client)
     assert missing["books"] == [] and "could not find" in missing["answer"]
 
 
+def test_catalog_comparison_connects_search_and_details_for_previous_results(client):
+    guest(client)
+    initial = send(client, "Find beginner Rust books.").json()
+    result = send(client, "Compare these books.", initial["conversation_id"]).json()
+    assert result["mode"] == "catalog_only"
+    assert result["tool_steps"] == ["search_books", "get_book_details"]
+    assert len(result["books"]) >= 2
+    assert {b["id"] for b in result["books"]} <= {b["id"] for b in initial["books"]}
+    assert all(book["title"] in result["answer"] for book in result["books"])
+
+
 def test_missing_subject_does_not_invent_available_books(client):
     guest(client)
     result = send(client, "Find books about medieval narwhal origami.").json()
@@ -227,6 +238,7 @@ def test_provider_tool_loop_uses_real_records_and_sends_no_account_secrets(clien
     client.post("/api/v1/auth/register", json=account)
     result = send(client, "Recommend a beginner Python book").json()
     assert result["mode"] == "llm" and result["generation_available"] is True
+    assert result["tool_steps"] == ["search_books", "get_book_details"]
     assert [item["id"] for item in result["books"]] == [str(book.id)]
     assert len(captured) == 3 and captured[0]["store"] is False
     assert str(book.id) in json.dumps(captured[0]["input"])

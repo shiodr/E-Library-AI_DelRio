@@ -132,35 +132,42 @@ test('assistant retrieves real Rust/Python records, retains follow-ups, and reco
   await expect(page.getByRole('heading', { name: pythonBooks.books[0].title, exact: true })).toBeVisible()
 })
 
-test('tracking demonstration is idempotent and visible in private history, with working favorites', async ({ page }) => {
-  await registerReader(page, 'tracking')
-  const book = await freeRustBook(page)
-  await page.goto(`/app/books/${book.id}`)
-  await expect(page.getByRole('heading', { name: book.title, exact: true })).toBeVisible()
-  await expect(page.getByText('In-app book-file delivery is not implemented.', { exact: false })).toBeVisible()
-
-  let response = page.waitForResponse(value => value.url() === `${api}/downloads` && value.request().method() === 'POST')
-  await page.getByRole('button', { name: 'Record tracking demonstration', exact: true }).click()
-  let recorded = await response
-  expect(recorded.status()).toBe(201)
-  expect((await recorded.json()).allowance.used).toBe(1)
-  await expect(page.locator('.success-notice')).toContainText('1 of 10 tracked. No file was downloaded.')
-
-  response = page.waitForResponse(value => value.url() === `${api}/downloads` && value.request().method() === 'POST')
-  await page.getByRole('button', { name: 'Record tracking demonstration', exact: true }).click()
-  recorded = await response
-  expect(recorded.status()).toBe(200)
-  const repeated = await recorded.json()
-  expect(repeated.already_downloaded).toBe(true)
-  expect(repeated.allowance.used).toBe(1)
-  await expect(page.locator('.success-notice')).toContainText('Already recorded; allowance unchanged.')
+test('compares real catalog records and saves to My Library only after confirmation', async ({ page }) => {
+  await registerReader(page, 'assistant-save')
+  await page.goto('/app/assistant')
+  const comparison = await ask(page, 'Compare beginner Rust books.')
+  expect(comparison.books.length).toBeGreaterThan(1)
+  await expect(page.getByText(/search_books → get_book_details/)).toBeVisible()
+  const title = comparison.books[0].title
+  const save = page.getByRole('button', { name: `Save ${title} to My Library`, exact: true })
+  await save.click()
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click()
+  expect((await (await page.request.get(`${api}/favorites`)).json()).total).toBe(0)
+  await save.click()
+  await page.getByRole('button', { name: 'Confirm save', exact: true }).click()
   await page.getByRole('link', { name: 'View My Library', exact: true }).click()
-  await expect(page.getByRole('heading', { name: /My Library/ })).toBeVisible()
-  await expect(page.locator('.library-disclosure')).toContainText('No book file is downloaded or delivered.')
-  await expect(page.locator('.library-disclosure')).toContainText('1 of 10 tracked')
+  await expect(page.getByRole('region', { name: 'Saved books' }).getByRole('heading', { name: title })).toBeVisible()
+})
+
+test('downloads an actual PDF twice using one slot and preserves private history and favorites', async ({ page }) => {
+  await registerReader(page, 'download')
+  const catalog = await page.request.get(`${api}/books?q=Eloquent%20JavaScript`)
+  const book = (await catalog.json()).items.find((item: { download_filename: string | null }) => item.download_filename)
+  expect(book).toBeDefined()
+  await page.goto(`/app/books/${book.id}`)
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const download = page.waitForEvent('download')
+    await page.getByRole('button', { name: 'Download PDF', exact: true }).click()
+    const file = await download
+    expect(file.suggestedFilename()).toBe('eloquent-javascript-4e.pdf')
+    expect(await file.failure()).toBeNull()
+    await expect(page.locator('.success-notice')).toContainText('PDF download ready.')
+  }
+  await page.getByRole('link', { name: 'View My Library', exact: true }).click()
+  await expect(page.locator('.library-disclosure')).toContainText('1 of 10 used')
   await expect(page.getByRole('heading', { name: book.title, exact: true })).toBeVisible()
   await page.reload()
-  await expect(page.locator('.library-disclosure')).toContainText('1 of 10 tracked')
+  await expect(page.locator('.library-disclosure')).toContainText('1 of 10 used')
 
   await page.goto(`/app/books/${book.id}`)
   await page.getByRole('button', { name: 'Save to favorites', exact: true }).click()
@@ -207,7 +214,7 @@ test('trusted admin provisioning enables real book management while guest and re
     expect(baseline.total_downloads).toBe(initial.total_downloads + 1)
     await metric(page, 'Recorded downloads', baseline.total_downloads)
     await metric(page, 'Registered users', baseline.registered_users)
-    await expect(page.locator('.admin-tracking-disclosure')).toContainText('They do not represent delivered book files.')
+    await expect(page.locator('.admin-tracking-disclosure')).toContainText('A request does not confirm that the file was saved.')
     await expect(page.getByRole('region', { name: 'Recent download tracking', exact: true })).toContainText(realBook.title)
     if (info.project.name === 'desktop') {
       const originalViewport = page.viewportSize()!
@@ -304,5 +311,100 @@ test('trusted admin provisioning enables real book management while guest and re
     } finally {
       if (granted) provision(email, '--revoke')
     }
+  }
+})
+
+test('filters catalog access, sorts verified peso prices and shows their source', async ({ page }) => {
+  await startGuest(page)
+  await page.goto('/app/explore?category=Rust')
+  await page.getByLabel('Access', { exact: true }).selectOption('free_to_read')
+  await expect(page.getByText('13 books to discover', { exact: true })).toBeVisible()
+  await expect(page.getByLabel('Sort', { exact: true })).toHaveCount(0)
+
+  const { email, suffix } = await registerReader(page, 'price')
+  const bookIds: string[] = []
+  const category = `Price test ${suffix}`
+  const lowerTitle = `Z affordable book ${suffix}`
+  provision(email, '--grant')
+  try {
+    for (const [title, slug] of [[lowerTitle, 'affordable'], [`A expensive book ${suffix}`, 'expensive']]) {
+      const response = await page.request.post(`${api}/admin/books`, { headers, data: {
+        title, author: 'Price QA', category, access_type: 'paid', description: 'A publisher offer test listing.',
+        license_type: 'Author-authorized eBook for testing.', source_url: `https://example.com/books/${suffix}/${slug}`,
+      } })
+      expect(response.status()).toBe(201)
+      bookIds.push((await response.json()).id)
+    }
+    const price = await page.request.put(`${api}/admin/books/${bookIds[1]}/price`, { headers, data: {
+      source_amount: '1800', currency: 'PHP', offer_format: 'Ebook',
+      source_url: `https://example.com/books/${suffix}/expensive`, checked_on: '2026-11-24',
+    } })
+    expect(price.status()).toBe(200)
+
+    await page.goto('/app/admin')
+    await searchManagedBooks(page, lowerTitle)
+    await page.getByRole('button', { name: `Set price for ${lowerTitle}`, exact: true }).click()
+    await page.getByLabel('Original amount', { exact: true }).fill('19.99')
+    await page.getByLabel('Currency code', { exact: true }).fill('USD')
+    await page.getByLabel('Date checked', { exact: true }).fill('2026-11-24')
+    await page.getByLabel('BSP rate in pesos per unit', { exact: true }).fill('63.863')
+    await page.getByLabel('BSP rate date', { exact: true }).fill('2026-11-24')
+    await page.getByRole('button', { name: 'Save price', exact: true }).click()
+    await expect(page.getByRole('heading', { name: `Price for ${lowerTitle}` })).toHaveCount(0)
+
+    await page.goto(`/app/explore?category=${encodeURIComponent(category)}`)
+    await page.getByLabel('Access', { exact: true }).selectOption('paid')
+    await page.getByLabel('Sort', { exact: true }).selectOption('price_asc')
+    await expect(page).toHaveURL(/sort=price_asc/)
+    await expect(page.locator('.book-card').first()).toContainText(lowerTitle)
+    await page.locator('.book-card').first().click()
+    await expect(page.getByRole('heading', { name: lowerTitle, exact: true })).toBeVisible()
+    await expect(page.locator('.publisher-price')).toContainText('≈ ₱1,276.62')
+    await expect(page.getByRole('link', { name: 'View price source' })).toHaveAttribute('href', `https://example.com/books/${suffix}/affordable`)
+  } finally {
+    for (const id of bookIds) await page.request.post(`${api}/admin/books/${id}/archive`, { headers })
+    provision(email, '--revoke')
+  }
+})
+
+test('authors submit resources for private review and administrators publish or archive them', async ({ page }) => {
+  const { email, suffix } = await registerReader(page, 'author')
+  const title = `Author tutorial ${suffix}`
+  await page.goto('/app/explore?view=resources')
+  await page.getByRole('link', { name: 'Submit a listing', exact: true }).click()
+  await page.getByLabel('Title', { exact: true }).fill(title)
+  await page.getByLabel('Author or creator', { exact: true }).fill('Demo creator')
+  await page.getByLabel('Category', { exact: true }).fill('Rust')
+  await page.getByRole('combobox', { name: 'Listing type', exact: true }).selectOption('tutorial')
+  await page.getByLabel('Description', { exact: true }).fill('A source link for an original Rust tutorial.')
+  await page.getByLabel('Official source URL').fill(`https://example.com/tutorial/${suffix}`)
+  await page.getByLabel('Proof of ownership or permission URL').fill(`https://example.com/private/${suffix}`)
+  await page.getByRole('checkbox', { name: /I own this work/ }).check()
+  await page.getByRole('button', { name: 'Submit for review' }).click()
+  const history = page.getByRole('region', { name: 'My submissions' }).locator('article').filter({ hasText: title })
+  await expect(history).toContainText('pending')
+  await page.goto('/app/explore?view=resources&q=' + encodeURIComponent(title))
+  await expect(page.getByRole('heading', { name: 'No resources found.' })).toBeVisible()
+
+  provision(email, '--grant')
+  try {
+    await page.goto('/app/admin/submissions')
+    const row = page.locator('article').filter({ has: page.getByRole('heading', { name: title, exact: true }) })
+    await expect(row.getByRole('link', { name: 'Review permission evidence' })).toHaveAttribute('href', `https://example.com/private/${suffix}`)
+    await row.getByRole('button', { name: 'Approve listing' }).click()
+    await expect(page.getByRole('status').filter({ hasText: 'is approved' })).toBeVisible()
+    await page.goto('/app/explore?view=resources&q=' + encodeURIComponent(title))
+    await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Open at source' })).toHaveAttribute('href', `https://example.com/tutorial/${suffix}`)
+    await expect(page.getByRole('link', { name: 'Review permission evidence' })).toHaveCount(0)
+    await page.getByLabel('Type', { exact: true }).selectOption('course')
+    await expect(page.getByRole('heading', { name: 'No resources found.' })).toBeVisible()
+
+    await page.goto('/app/admin/submissions')
+    await page.getByLabel('Status', { exact: true }).selectOption('approved')
+    await row.getByRole('button', { name: 'Archive listing' }).click()
+    await expect(page.getByRole('status').filter({ hasText: 'is archived' })).toBeVisible()
+  } finally {
+    provision(email, '--revoke')
   }
 })

@@ -7,6 +7,7 @@ import { useAuth } from '../context/AuthContext'
 import { useBooks, useCategories } from '../hooks/useCatalog'
 import { native } from '../lib/api'
 import { BookCard, BookSkeletons, Brand, Cover, ErrorState, LoadingPage, Spinner, ThemeToggle } from '../components/ui'
+import { CategoryLogo } from '../components/CategoryLogo'
 
 export function Landing() {
   const { guest, profile, loading: checkingSession, connectionError, refresh } = useAuth()
@@ -49,7 +50,7 @@ export function Landing() {
             <Search size={20} /><input aria-label="Search the collection" value={query} onChange={event => setQuery(event.target.value)} placeholder="Search title, author, or language…" maxLength={150} />
             <button className="button primary small" type="submit">Search library</button>
           </form>
-          {categories.data?.length ? <div className="landing-category-chips" aria-label="Popular categories">{categories.data.slice(0, 6).map(category => <Link key={category.name} to={`/app/explore?category=${encodeURIComponent(category.name)}`}>{category.name}</Link>)}</div> : null}
+          {categories.data?.length ? <div className="landing-category-chips" aria-label="Popular categories">{categories.data.slice(0, 6).map(category => <Link key={category.name} to={`/app/explore?category=${encodeURIComponent(category.name)}`}><CategoryLogo name={category.name} />{category.name}</Link>)}</div> : null}
           <div className="hero-actions"><Link to={profile ? '/app' : '/register'} state={location.state} className="button primary">{profile ? 'Open your library' : 'Find your next read'} <ArrowRight size={18} /></Link>
             {!profile && <button className="button secondary" onClick={enterGuest} disabled={busy}>{busy ? <Spinner /> : <Compass size={18} />}Continue as Guest</button>}
           </div>

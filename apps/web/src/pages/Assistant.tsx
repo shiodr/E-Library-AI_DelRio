@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { FormEvent, KeyboardEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { BookCard, Spinner } from '../components/ui'
+import { useAuth } from '../context/AuthContext'
 import { api, ApiError, post } from '../lib/api'
 import type { Book } from '../types'
 import './assistant.css'
@@ -20,6 +21,7 @@ interface ChatResponse {
   mode: 'llm' | 'catalog_only' | 'provider_error'
   generation_available: boolean
   model: string | null
+  tool_steps?: string[]
 }
 
 interface Message {
@@ -29,15 +31,22 @@ interface Message {
   books?: Book[]
   mode?: ChatResponse['mode']
   failed?: boolean
+  toolSteps?: string[]
 }
 
 const suggestions = [
   'Find beginner-friendly Rust books.',
+  'Compare beginner Rust books.',
   'Recommend beginner-friendly Python books.',
   'Find books by Robert C. Martin.',
 ]
 
 export function Assistant() {
+  const { profile } = useAuth()
+  const [selectedBook, setSelectedBook] = useState<Book | null>(null)
+  const [savingBook, setSavingBook] = useState(false)
+  const [saveNotice, setSaveNotice] = useState('')
+  const [saveError, setSaveError] = useState('')
   const [status, setStatus] = useState<AssistantStatus | null>(null)
   const [statusError, setStatusError] = useState('')
   const [statusRevision, setStatusRevision] = useState(0)
@@ -104,6 +113,7 @@ export function Assistant() {
       setStatusError('')
       const answer: Message = {
         id: ++nextId.current, role: 'assistant', text: result.answer, books: result.books, mode: result.mode,
+        toolSteps: result.tool_steps,
       }
       setMessages(previous => [...previous, answer].slice(-24))
     } catch (reason) {
@@ -134,6 +144,23 @@ export function Assistant() {
     setDraft('')
     setError('')
     setFailedRequest(null)
+    setSelectedBook(null)
+    setSaveNotice('')
+    setSaveError('')
+  }
+
+  async function confirmSave(book: Book) {
+    setSavingBook(true)
+    setSaveError('')
+    try {
+      await post('/favorites', { book_id: book.id })
+      setSelectedBook(null)
+      setSaveNotice(`Saved “${book.title}” to My Library.`)
+    } catch (reason) {
+      setSaveError(reason instanceof Error ? reason.message : 'Unable to save this book.')
+    } finally {
+      setSavingBook(false)
+    }
   }
 
   return <div className="library-assistant">
@@ -141,7 +168,7 @@ export function Assistant() {
       <span className="eyebrow">ASK THE COLLECTION</span>
       <h1>Your library assistant<span className="heading-dot">.</span></h1>
       <p>Find programming books, ask a follow-up, and open a real catalog record.</p>
-    </div><button className="button secondary small" onClick={newConversation} disabled={pending || !messages.length}>
+    </div><button className="button secondary small" onClick={newConversation} disabled={pending || savingBook || !messages.length}>
       <Plus size={16} />New conversation
     </button></div>
 
@@ -174,12 +201,28 @@ export function Assistant() {
           <span className="library-chat-speaker">{message.role === 'user' ? 'You' : 'Library assistant'}</span>
           <p className="library-chat-text">{message.text}</p>
           {message.failed && <span className="library-chat-failed">{restricted ? 'This session does not have assistant access.' : 'Response unavailable. Retry below.'}</span>}
-          {!!message.books?.length && <div className="library-chat-books" aria-label="Catalog recommendations">{message.books.map(book => <BookCard book={book} key={book.id} />)}</div>}
+          {!!message.books?.length && <div className="library-chat-books" aria-label="Catalog recommendations">{message.books.map(book => <div key={book.id}>
+            <BookCard book={book} />
+            {profile?.session_type === 'user' && <button className="text-link" disabled={savingBook} onClick={() => {
+              setSelectedBook(book); setSaveNotice(''); setSaveError('')
+            }} aria-label={`Save ${book.title} to My Library`}>Save to My Library</button>}
+          </div>)}</div>}
+          {!!message.toolSteps?.length && <p className="library-chat-response-mode">Catalog tools: {message.toolSteps.join(' → ')}</p>}
           {message.role === 'assistant' && <span className="library-chat-response-mode">{message.mode === 'llm' ? 'AI response grounded in catalog records' : message.mode === 'provider_error' ? 'Catalog retrieval · AI generation temporarily unavailable' : 'Catalog retrieval · AI generation not configured'}</span>}
         </article>)}
         {pending && <div className="library-chat-pending" role="status"><Spinner /><span>Searching the catalog and preparing your response…</span></div>}
         <div ref={end} />
       </div>
+
+      {selectedBook && <div className="library-chat-disclosure">
+        <div>
+          <p>Save “{selectedBook.title}” to My Library?</p>
+          <button autoFocus className="button primary small" disabled={savingBook} onClick={() => void confirmSave(selectedBook)}>Confirm save</button>{' '}
+          <button className="button secondary small" disabled={savingBook} onClick={() => { setSelectedBook(null); setSaveError('') }}>Cancel</button>
+          {saveError && <p role="alert">{saveError}</p>}
+        </div>
+      </div>}
+      {saveNotice && <p className="library-chat-disclosure" role="status">{saveNotice} <Link className="text-link" to="/app/library">View My Library</Link></p>}
 
       {error && <div className="library-chat-error" role="alert"><p>{error}</p>
         {failedRequest && !restricted && <button className="button secondary small" disabled={pending} onClick={() => void send(failedRequest.text, failedRequest.userId)}><RefreshCw size={15} />Retry question</button>}

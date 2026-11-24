@@ -36,6 +36,26 @@ def test_paid_listing_cannot_consume_a_download_allowance(client, db):
     assert client.get("/api/v1/downloads").json()["allowance"]["used"] == 0
 
 
+def test_file_delivery_requires_a_session_a_reviewed_file_and_available_quota(client, db, book_ids):
+    book = db.scalar(select(Book).where(Book.source_url == "https://eloquentjavascript.net/"))
+    other_ids = [book_id for book_id in book_ids if book_id != str(book.id)]
+    path = f"/api/v1/downloads/{book.id}/file"
+    assert client.post(path).status_code == 401
+    assert client.post("/api/v1/auth/guest", json={}).status_code == 201
+    assert client.post(f"/api/v1/downloads/{other_ids[0]}/file").status_code == 404
+    assert client.get("/api/v1/downloads").json()["allowance"]["used"] == 0
+    for book_id in other_ids[:5]:
+        assert download(client, book_id).status_code == 201
+    assert client.post(path).status_code == 403
+    assert client.post("/api/v1/auth/guest", json={}).status_code == 201
+    for _ in range(2):
+        response = client.post(path)
+        assert response.status_code == 200
+        assert response.content.startswith(b"%PDF-")
+        assert response.headers["cache-control"] == "no-store"
+    assert client.get("/api/v1/downloads").json()["allowance"]["used"] == 1
+
+
 def test_guest_limit_is_five_distinct_books(client, book_ids):
     assert client.post("/api/v1/auth/guest", json={}).status_code == 201
     for index, book_id in enumerate(book_ids[:5]):

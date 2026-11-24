@@ -18,7 +18,7 @@ test('landing, guest session, real catalog, and mobile navigation', async ({ pag
   await expect(page.getByRole('heading', { name: 'The Rust Programming Language', exact: true })).toBeVisible()
   await expect(page.getByRole('link', { name: 'Read at the authorized source' })).toHaveAttribute('href', /^https:/)
   await navigation.getByRole('link', { name: 'My Library' }).click()
-  await expect(page.getByText('Download tracking demonstration', { exact: true })).toBeVisible()
+  await expect(page.getByText('Download history', { exact: true })).toBeVisible()
   await navigation.getByRole('link', { name: /assistant/i }).click()
   await expect(page.getByText('Catalog retrieval is available. AI generation is not configured.')).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)

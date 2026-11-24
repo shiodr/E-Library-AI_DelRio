@@ -1,6 +1,9 @@
 import { Archive, ArrowLeft, ArrowRight, BookOpen, CheckCircle, Download, ExternalLink, Pencil, Plus, RefreshCw, RotateCcw, Search, ShieldCheck, Users } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
+import { Link } from 'react-router-dom'
+import { priceLabel } from '../lib/prices'
+import { PriceEditor } from './PriceEditor'
 import { ErrorState, Spinner } from '../components/ui'
 import { useResource } from '../hooks/useCatalog'
 import { api, post } from '../lib/api'
@@ -52,6 +55,7 @@ export function Admin() {
   const [status, setStatus] = useState('all')
   const [offset, setOffset] = useState(0)
   const [formOpen, setFormOpen] = useState(false)
+  const [pricing, setPricing] = useState<Book | null>(null)
   const [editing, setEditing] = useState<Book | null>(null)
   const [form, setForm] = useState<BookForm>({ ...emptyForm })
   const [formError, setFormError] = useState('')
@@ -90,6 +94,7 @@ export function Admin() {
 
   function openForm(book: Book | null) {
     if (writing.current) return
+    setPricing(null)
     setEditing(book)
     setForm(book ? {
       title: book.title, author: book.author, category: book.category, description: book.description,
@@ -180,6 +185,7 @@ export function Admin() {
     </div><span className="admin-access-label"><ShieldCheck size={16} />Administrator access</span></div>
 
     <div className="admin-toolbar"><a className="text-link" href="#manage-books">Manage books <ArrowRight size={15} /></a>
+      <Link className="text-link" to="/app/admin/submissions">Review submissions</Link>
       <button className="button secondary small" onClick={refresh} disabled={pending || overview.loading || books.loading}><RefreshCw size={15} />Refresh data</button>
     </div>
     {notice && <p className="admin-success" role="status"><CheckCircle size={17} />{notice}</p>}
@@ -189,13 +195,14 @@ export function Admin() {
         : <div className="admin-metrics">{metrics.map(({ label, value, icon: Icon }) => <article className="admin-metric" key={label}>
           <Icon size={20} /><span>{label}</span><strong>{value.toLocaleString()}</strong>
         </article>)}</div>}
-    <p className="admin-tracking-disclosure">Download figures count tracked requests, including demonstration requests. They do not represent delivered book files.</p>
+    <p className="admin-tracking-disclosure">Download figures count distinct requests, including earlier tracking demos. A request does not confirm that the file was saved.</p>
 
     <section className="admin-management" id="manage-books" aria-labelledby="manage-books-title">
       <div className="admin-section-heading"><div><h2 id="manage-books-title">Book management</h2><p>Add, edit, archive, or restore catalog records. Existing history is preserved.</p></div>
         <button className="button primary small" onClick={() => openForm(null)} disabled={pending}><Plus size={16} />Add book</button>
       </div>
 
+      {pricing && <PriceEditor key={pricing.id} book={pricing} close={() => setPricing(null)} saved={() => { setPricing(null); refresh() }} />}
       {formOpen && <section className="admin-book-editor" ref={editor} aria-labelledby="book-editor-title">
         <div className="admin-editor-heading"><h3 id="book-editor-title">{editing ? 'Edit book' : 'Add book'}</h3>
           <button className="text-link" disabled={pending} onClick={() => { setFormOpen(false); setFormError('') }}>Cancel editing</button></div>
@@ -227,9 +234,10 @@ export function Admin() {
           : books.data?.items.length ? <div className="admin-table-scroll" tabIndex={0} role="region" aria-label="Managed book records"><table className="admin-book-table"><caption className="sr-only">Managed catalog books and available actions</caption>
             <thead><tr><th scope="col">Book</th><th scope="col">Category</th><th scope="col">Access</th><th scope="col">Status</th><th scope="col">Actions</th></tr></thead>
             <tbody>{books.data.items.map(book => <tr key={book.id}><td><strong>{book.title}</strong><small>{book.author}</small><a href={book.source_url} target="_blank" rel="noopener noreferrer" className="admin-source-link">Authorized source <ExternalLink size={12} /></a></td>
-              <td>{book.category}</td><td>{book.access_type === 'paid' ? 'Paid listing' : 'Free edition'}</td>
+              <td>{book.category}</td><td>{book.access_type === 'paid' ? book.price ? priceLabel(book.price) : 'Price not set' : 'Free edition'}</td>
               <td><span className={`admin-book-status ${book.is_active === false ? 'archived' : ''}`}>{book.is_active === false ? 'Archived' : 'Active'}</span></td>
               <td><div className="admin-row-actions"><button className="button secondary small" aria-label={`Edit ${book.title}`} onClick={() => openForm(book)} disabled={pending}><Pencil size={14} />Edit</button>
+                {book.access_type === 'paid' && <button className="button secondary small" aria-label={`Set price for ${book.title}`} onClick={() => { setFormOpen(false); setPricing(book); document.getElementById('manage-books')?.scrollIntoView?.() }} disabled={pending}>Price</button>}
                 <button className="button secondary small" aria-label={`${book.is_active === false ? 'Restore' : 'Archive'} ${book.title}`} disabled={pending} onClick={() => { setActionError(''); setConfirmation({ book, action: book.is_active === false ? 'restore' : 'archive' }) }}>{book.is_active === false ? <RotateCcw size={14} /> : <Archive size={14} />}{book.is_active === false ? 'Restore' : 'Archive'}</button></div></td>
             </tr>)}</tbody></table></div>
             : <div className="admin-empty"><BookOpen size={29} /><h3>No matching books</h3><p>Try another search or filter, or add a catalog record.</p><button className="button secondary small" onClick={() => { setQuery(''); setDraftQuery(''); setCategory(''); setStatus('all'); setOffset(0) }}>Clear filters</button></div>}

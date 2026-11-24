@@ -56,7 +56,7 @@ export function restoreBearer(): Promise<void> {
   return restoration
 }
 
-export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
+async function request(path: string, options: RequestInit): Promise<Response> {
   const requestVersion = sessionVersion
   if (native) {
     const url = new URL(API_BASE_URL)
@@ -89,7 +89,18 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
       && isCurrentSession(requestVersion)) window.dispatchEvent(new CustomEvent('session-check-required', { detail: requestVersion }))
     throw new ApiError(message, response.status)
   }
+  return response
+}
+
+export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const response = await request(path, options)
   return response.status === 204 ? undefined as T : response.json() as Promise<T>
+}
+
+export async function downloadBookFile(bookId: string) {
+  const response = await request(`/downloads/${encodeURIComponent(bookId)}/file`, { method: 'POST' })
+  if (response.headers.get('Content-Type') !== 'application/pdf') throw new Error('The book file is unavailable.')
+  return response.blob()
 }
 
 export function post<T>(path: string, data: unknown = {}) {

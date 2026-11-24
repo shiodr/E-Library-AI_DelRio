@@ -8,6 +8,7 @@ from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session as DBSession
 
+from app.book_files import book_file
 from app.models import Book, Download, Favorite, Session, User
 from app.schemas.library import Allowance
 
@@ -89,11 +90,13 @@ def remove_favorite(db: DBSession, session: Session, book_id: uuid.UUID) -> None
 
 
 def record_download(
-    db: DBSession, session: Session, book_id: uuid.UUID
+    db: DBSession, session: Session, book_id: uuid.UUID, *, require_file: bool = False
 ) -> tuple[Download, Book, bool, Allowance]:
     # Every device/account session shares its owner lock and the same lifetime quota.
     session = lock_owner(db, session)
     book = require_book(db, book_id)
+    if require_file and book_file(book.source_url, book.access_type) is None:
+        raise HTTPException(404, "This title has no in-app download.")
     existing = db.scalar(select(Download).where(download_owner(session), Download.book_id == book_id))
     if existing:
         allowance = download_allowance(db, session)

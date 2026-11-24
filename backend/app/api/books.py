@@ -1,5 +1,5 @@
 import uuid
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import case, func, or_, select
@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.models import Book
+from app.models.entities import BookPrice
 from app.schemas.books import BookOutput, BookPage, CategoryOutput
 
 router = APIRouter(tags=["Catalog"])
@@ -20,6 +21,8 @@ def books(
     category: str | None = Query(default=None, max_length=80),
     limit: int = Query(default=12, ge=1, le=50),
     offset: int = Query(default=0, ge=0),
+    access_type: Literal["free_to_read", "paid"] | None = None,
+    sort: Literal["price_asc"] | None = None,
 ):
     statement = select(Book).where(Book.is_active.is_(True))
     if q.strip():
@@ -34,11 +37,16 @@ def books(
         )
     if category:
         statement = statement.where(Book.category == category)
+    if access_type:
+        statement = statement.where(Book.access_type == access_type)
+    if sort == "price_asc" and access_type != "paid":
+        raise HTTPException(422, "Price sorting is available for paid books.")
     total = db.scalar(select(func.count()).select_from(statement.subquery()))
-    items = db.scalars(
-        statement.order_by(case((Book.category == "Rust", 0), else_=1), Book.title, Book.id)
-        .offset(offset).limit(limit)
-    ).all()
+    order = case((Book.category == "Rust", 0), else_=1)
+    if sort == "price_asc":
+        statement = statement.outerjoin(BookPrice, BookPrice.book_id == Book.id)
+        order = BookPrice.amount_php_minor.asc().nulls_last()
+    items = db.scalars(statement.order_by(order, Book.title, Book.id).offset(offset).limit(limit)).all()
     return BookPage(items=items, total=total, limit=limit, offset=offset)
 
 

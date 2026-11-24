@@ -5,11 +5,10 @@ Created by **shio del rio**. Website and Android branding: **E-Library AI by shi
 Integrated Web and Android E-Library System with an Embedded Agentic AI Assistant.
 IPT102 — Integrative Programming and Emerging Technologies 2.
 
-Current status: [November 20 Phase 1 / Phase 2 audit](docs/phase1-phase2-audit.md).
-Official Phase 1 functionality passes. Most Phase 2 modules are implemented;
-AI/tool demonstration and presentation/submission evidence remain open. Full agent
-and file-delivery features belong to final Phase 3. The audit records the official
-rubric comparison, conservative cleanup, and fresh verification.
+Current status: [Phase 3 showcase handoff](docs/phase3-showcase.md).
+Explore supports [peso prices, access filters, and author submissions](docs/catalog-contributions.md).
+The [Phase 1 / Phase 2 audit](docs/phase1-phase2-audit.md) records the earlier
+rubric comparison and verification.
 
 Phase 1 provides a working React application, a generated Capacitor Android project,
 and one FastAPI/PostgreSQL backend. Authentication and the 200-title programming catalog
@@ -19,8 +18,9 @@ with enforced five-book guest and ten-book account limits. My Library and favori
 are connected to the shared backend. Website administrators can add, edit, archive,
 and restore books. The embedded assistant retrieves real catalog records and has a
 server-side OpenAI integration; generated AI remains blocked until a provider key
-is configured and verified. Tracking controls are explicitly demonstrations; actual
-file delivery remains planned. See the [Phase 1 handoff](docs/phase1-completion.md)
+is configured and verified. Catalog mode compares books with two connected tools.
+Readers can confirm assistant saves and download the authorized Eloquent JavaScript PDF.
+See the [Phase 1 handoff](docs/phase1-completion.md)
 for acceptance status, administrator setup, new endpoints, and remaining blockers.
 See the [complete programming catalog](docs/programming-catalog.md)
 for every title, author, access label, and source link.

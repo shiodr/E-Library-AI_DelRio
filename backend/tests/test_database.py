@@ -27,6 +27,8 @@ def test_migrations_apply_and_match_models():
             "downloads",
             "assistant_conversations",
             "assistant_rate_limits",
+            "book_prices",
+            "catalog_submissions",
             "alembic_version",
         }
         assert compare_metadata(MigrationContext.configure(connection), Base.metadata) == []

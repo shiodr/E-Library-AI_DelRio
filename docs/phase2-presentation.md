@@ -93,10 +93,11 @@ favorites across platforms. The native sign-in credential is encrypted using And
 Keystore. The assistant is embedded in the application and retrieves real catalog
 records. Its current response does not claim that a live language model generated it.”
 
-**Samsung A55 result — owner-reported, November 21:** the loading screen now covers
-the whole display. This confirms the startup layout fix on the physical phone,
-alongside the emulator checks in both themes. This report covers the loading layout;
-it does not establish a fresh pass for every other application flow.
+**Samsung A55 results — owner-reported, November 21:** the loading screen now covers
+the whole display, and the updated glass panels and moving navigation pill work on
+the phone. These reports confirm the startup and glass-navigation changes on physical
+hardware, alongside the emulator checks. They do not establish a fresh pass for every
+other application flow.
 
 ## Slide 3 — Web Application
 
@@ -194,12 +195,14 @@ live provider-driven tool run. Mark that demonstration as pending.
 
 ### On-slide content
 
-- **Recorded automated results:** 91 backend tests, 34 frontend tests,
+- **Recorded automated results:** 91 backend tests, 35 frontend tests,
   17 browser end-to-end tests, and 3 cross-site cookie tests passed.
 - **Latest Android layout check:** 8 browser size/theme combinations and native
   emulator startup checks passed; production build and APK signature verification passed.
 - **Issue addressed:** startup loader filled only half the screen. The owner confirmed
   full-screen loading on the Samsung A55; emulator checks passed in both themes.
+- **Glass navigation:** translucent panels and a moving selection pill work on both
+  platforms; the owner confirmed the Android update works on the Samsung A55.
 - **Remaining checks:** live AI tool execution, actual authorized file delivery, and broader final acceptance.
 - **Before December 5:** complete agent actions, legal downloads with limits, and final integration/submission evidence.
 - **Repository:** https://github.com/shiodr/E-Library-AI_DelRio
@@ -209,12 +212,13 @@ live provider-driven tool run. Mark that demonstration as pending.
 | Evidence | What it establishes | Date or scope |
 | --- | --- | --- |
 | Backend: 91 passed | Authentication, authorization, catalog, quotas, ownership, migrations, and assistant control flow | November 20 audit; provider paths use mocks |
-| Frontend: 34 passed | Existing UI and session regression tests | Rerun November 21 for the startup fix |
+| Frontend: 35 passed | UI/session regression tests and keyboard navigation with the glass pill | Rerun November 21 for the navigation update |
 | Browser: 17 passed | Local integrated reader/admin/catalog flows | November 20; 1 duplicate viewport test intentionally skipped |
 | Cross-site cookies: 3 passed | Browser authentication with ordinary third-party cookies blocked | November 20 local HTTPS tests |
 | Startup: 8 browser combinations | Full-height, centered loading layout and sign-in transition | November 21; 4 sizes in each theme |
 | Android emulator and APK checks | Native loading layout in both themes; APK builds and signature verifies | November 21 |
-| Physical Samsung A55 | Loading screen covers the whole display | Owner-reported success, November 21; startup layout only |
+| Glass navigation | 5 integrated navigation tests and 8 browser theme/motion combinations passed; native animation and reduced-motion checks passed | November 21; one duplicate browser viewport test intentionally skipped |
+| Physical Samsung A55 | Full-screen loading, glass panels, and moving navigation pill work | Owner-reported success, November 21; these UI updates only |
 
 The first four counts are separate suites, not one new combined test run. Use
 dated output from the [audit](phase1-phase2-audit.md) and the latest local check logs.
@@ -222,7 +226,7 @@ Automated tests with mocked provider responses do not prove live OpenAI success.
 
 ### Final development plan
 
-1. Include the confirmed Samsung A55 startup layout result in the demonstration.
+1. Include the confirmed Samsung A55 startup and glass-navigation results in the demonstration.
    Complete final acceptance evidence for session restoration, navigation, keyboard,
    and shared-account behavior separately.
 2. When the owner enables the provider, verify real generated responses and tool
@@ -239,7 +243,7 @@ Automated tests with mocked provider responses do not prove live OpenAI success.
 
 “The results show that the shared foundation and most functional modules have
 automated evidence. The latest Android startup layout passed browser and native
-emulator checks, and I confirmed full-screen loading on my Samsung A55. Before the final
+emulator checks, and I confirmed full-screen loading and the glass navigation on my Samsung A55. Before the final
 presentation, the main work is real AI tool execution, confirmed library actions,
 authorized file delivery, and complete deployment and submission evidence.”
 
@@ -249,4 +253,4 @@ documentation, and a live demonstration of completed modules.
 
 Preparation limit: this file supplies presentation content and demo guidance; it does
 not create a PowerPoint or prove submission/presentation completion. Live AI generation
-remains unverified; the new physical-phone result confirms startup layout specifically.
+remains unverified; the physical-phone reports cover startup layout and the glass UI specifically.

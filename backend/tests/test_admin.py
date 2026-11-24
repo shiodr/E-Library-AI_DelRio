@@ -5,35 +5,11 @@ from threading import Barrier
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import delete, func, select
+from sqlalchemy import func, select
 
 from app.main import app
-from app.models import Book, Download, Favorite, Session, User
+from app.models import Book, Download, Session, User
 from app.services.seed import seed_catalog
-
-
-@pytest.fixture
-def administrator(client, db, account):
-    result = client.post("/api/v1/auth/register", json=account)
-    assert result.status_code == 201
-    user = db.get(User, uuid.UUID(result.json()["user"]["id"]))
-    user.role = "admin"
-    db.commit()
-    assert client.get("/api/v1/auth/me").json()["user"]["role"] == "admin"
-    return client
-
-
-@pytest.fixture
-def managed_catalog(db):
-    category = "Admin test " + uuid.uuid4().hex
-    yield category
-    db.rollback()
-    ids = list(db.scalars(select(Book.id).where(Book.category == category)))
-    if ids:
-        db.execute(delete(Favorite).where(Favorite.book_id.in_(ids)))
-        db.execute(delete(Download).where(Download.book_id.in_(ids)))
-        db.execute(delete(Book).where(Book.id.in_(ids)))
-        db.commit()
 
 
 def book_input(catalog_category, **changes):

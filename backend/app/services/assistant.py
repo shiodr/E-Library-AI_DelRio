@@ -39,6 +39,7 @@ class ChatOutput(BaseModel):
     mode: Literal["llm", "catalog_only", "provider_error"]
     generation_available: bool
     model: str | None
+    tool_steps: list[str] = Field(default_factory=list)
 
 
 class SearchArguments(BaseModel):
@@ -293,6 +294,10 @@ def _public_record(book: Book) -> dict:
     }
 
 
+def get_book_details(db: DBSession, book_id: uuid.UUID) -> Book | None:
+    return db.scalar(select(Book).where(Book.id == book_id, Book.is_active.is_(True)))
+
+
 def _provider_request(payload: dict, timeout: float) -> dict:
     settings = get_settings()
     request = Request(
@@ -310,9 +315,10 @@ def _provider_request(payload: dict, timeout: float) -> dict:
     return value
 
 
-def _generate(db: DBSession, message: str, history: list[dict], initial: list[Book]) -> tuple[str, list[Book]]:
+def _generate(db: DBSession, message: str, history: list[dict], initial: list[Book]) -> tuple[str, list[Book], list[str]]:
     settings = get_settings()
     known = {book.id: book for book in initial}
+    tool_steps = []
     inputs = [{"role": row["role"], "content": row["content"][:2500]} for row in history[-8:]]
     inputs.extend([
         {"role": "user", "content": message},
@@ -352,15 +358,17 @@ def _generate(db: DBSession, message: str, history: list[dict], initial: list[Bo
                 if not isinstance(arguments, str) or len(arguments) > 2000:
                     raise ValueError("Invalid tool arguments.")
                 arguments = json.loads(arguments)
-                if call.get("name") == "search_books":
+                name = call.get("name")
+                if name == "search_books":
                     args = SearchArguments.model_validate(arguments)
                     found = retrieve_catalog(db, args.query, history, args.category, args.limit)
-                elif call.get("name") == "get_book_details":
+                elif name == "get_book_details":
                     args = DetailsArguments.model_validate(arguments)
-                    book = db.scalar(select(Book).where(Book.id == args.book_id, Book.is_active.is_(True)))
+                    book = get_book_details(db, args.book_id)
                     found = [book] if book else []
                 else:
                     raise ValueError("Unsupported assistant tool.")
+                tool_steps.append(name)
                 known.update({book.id: book for book in found})
                 inputs.append({
                     "type": "function_call_output", "call_id": call["call_id"],
@@ -378,20 +386,22 @@ def _generate(db: DBSession, message: str, history: list[dict], initial: list[Bo
         current = {book.id: book for book in db.scalars(select(Book).where(Book.id.in_(identifiers), Book.is_active.is_(True)))}
         if len(current) != len(identifiers):
             raise ValueError("A recommended book is no longer available.")
-        return answer.answer, [current[identifier] for identifier in identifiers]
+        return answer.answer, [current[identifier] for identifier in identifiers], tool_steps
     raise ValueError("Assistant tool limit reached.")
 
 
 def _retrieval_answer(message: str, books: list[Book]) -> str:
     if any(term in message.casefold() for term in _NAVIGATION):
         return (
-            "Use Explore books to search titles, authors, and categories. My Library shows your recorded "
-            "tracking requests. Account controls let you sign out; guests can register for a shared website/Android account. "
-            "External author/publisher links control reading access. Tracking demonstrations do not deliver book files."
+            "Use Explore books to search titles, authors, and categories. My Library shows saved books and download requests. "
+            "Account controls let you sign out. Use Download PDF on a title that offers an in-app file."
         )
     if not books:
         return "I could not find an active catalog match. Try a programming language, title, author, or a different subject."
-    return f"I found {len(books)} matching active catalog records. Open a card for its details and authorized source."
+    return (
+        f"I found {len(books)} matching catalog records. Start with “{books[0].title}” by {books[0].author}. "
+        "Open a card for its details and authorized source."
+    )
 
 
 def chat(db: DBSession, session: Session, data: ChatInput) -> ChatOutput:
@@ -411,13 +421,18 @@ def chat(db: DBSession, session: Session, data: ChatInput) -> ChatOutput:
         db.add(conversation)
         db.flush()
     history = conversation.history[-12:]
-    books = retrieve_catalog(db, data.message, history)
-    answer = _retrieval_answer(data.message, books)
     settings = get_settings()
+    comparison = re.match(r"^compare\s+(.+)$", data.message, re.IGNORECASE) if not settings.openai_api_key else None
+    query = comparison[1] if comparison else data.message
+    if comparison and query.rstrip("?.!").casefold() in {"these", "them", "these books", "those books"}:
+        query = "these books"
+    books = retrieve_catalog(db, query, history, limit=3 if comparison else 6)
+    answer = _retrieval_answer(data.message, books)
     mode = "catalog_only"
+    tool_steps = ["search_books"]
     if settings.openai_api_key:
         try:
-            answer, books = _generate(db, data.message, history, books)
+            answer, books, tool_steps = _generate(db, data.message, history, books)
             mode = "llm"
         except (HTTPError, URLError, OSError, TimeoutError, ValueError, ValidationError, KeyError, TypeError):
             # Do not log provider responses, request bodies, keys, or sensitive exception details.
@@ -426,6 +441,19 @@ def chat(db: DBSession, session: Session, data: ChatInput) -> ChatOutput:
             answer = "AI generation is unavailable right now. " + _retrieval_answer(data.message, books)
             mode = "provider_error"
     else:
+        if comparison:
+            if books:
+                tool_steps.append("get_book_details")
+            books = [book for match in books if (book := get_book_details(db, match.id))]
+            if len(books) >= 2:
+                answer = "Here is a comparison of active catalog books:\n" + "\n".join(
+                    f"{book.title} by {book.author} — "
+                    f"{'free online edition' if book.access_type == 'free_to_read' else 'paid publisher listing'}. "
+                    f"{book.description[:350]}"
+                    for book in books
+                )
+            else:
+                answer = "I need at least two catalog matches to compare. Try “Compare beginner Rust books.”"
         answer += " Catalog retrieval only: AI generation is blocked until a server-side provider key is configured."
     lock_session(db, session)
     conversation.history = (history + [
@@ -438,4 +466,5 @@ def chat(db: DBSession, session: Session, data: ChatInput) -> ChatOutput:
         conversation_id=conversation.id, answer=answer,
         books=[BookOutput.model_validate(book) for book in books], mode=mode,
         generation_available=mode == "llm", model=settings.openai_model if settings.openai_api_key else None,
+        tool_steps=tool_steps if mode != "provider_error" else [],
     )

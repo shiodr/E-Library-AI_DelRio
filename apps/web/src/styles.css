@@ -204,9 +204,6 @@ svg { flex-shrink: 0; }
 .category-card { display: flex; align-items: center; gap: 10px; padding: 17px 13px; background: var(--surface); border: 1px solid var(--border); border-radius: 9px; transition: border-color .2s; }
 .category-card:hover { border-color: var(--accent); }
 .category-icon { display: flex; align-items: center; justify-content: center; width: 37px; height: 39px; border-radius: 8px; color: #4b785e; background: #eef3e6; flex-shrink: 0; }
-.category-1 .category-icon { background: #eeebf7; color: #7a68a4; }
-.category-2 .category-icon { background: #f6eee1; color: #a17e46; }
-.category-3 .category-icon { background: #e9f0f6; color: #52779c; }
 .category-card h3 { font-size: 10px; letter-spacing: 0; font-weight: 600; }
 .category-card div > span { font-size: 8px; color: var(--muted); display: block; margin-top: 5px; }
 .category-card > svg { margin-left: auto; color: var(--muted); width: 13px; }
@@ -460,7 +457,6 @@ svg { flex-shrink: 0; }
   .category-card > svg { display: none; }
   .category-card h3 { font-size: 10px; }
   .category-icon { width: 33px; height: 36px; }
-  .category-icon svg { width: 18px; }
   .assistant-teaser { padding: 20px 17px; gap: 14px; }
   .assistant-teaser > div { flex: 1; }
   .assistant-teaser h3 { font-size: 14px; line-height: 1.4; }

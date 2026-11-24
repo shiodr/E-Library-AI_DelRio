@@ -1,13 +1,17 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
+from decimal import Decimal
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     CheckConstraint,
+    Date,
     DateTime,
     ForeignKey,
     Index,
     Integer,
+    Numeric,
     String,
     Text,
     UniqueConstraint,
@@ -15,7 +19,7 @@ from sqlalchemy import (
     text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
 class Base(DeclarativeBase):
@@ -71,6 +75,47 @@ class Book(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true", index=True)
     is_managed_by_admin: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     seed_source_url: Mapped[str | None] = mapped_column(String(500))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    price: Mapped["BookPrice | None"] = relationship(lazy="selectin", cascade="all, delete-orphan")
+
+
+class BookPrice(Base):
+    __tablename__ = "book_prices"
+    __table_args__ = (CheckConstraint("amount_php_minor > 0 AND source_amount > 0", name="ck_book_prices_positive"),)
+
+    book_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("books.id", ondelete="CASCADE"), primary_key=True)
+    source_amount: Mapped[Decimal] = mapped_column(Numeric(12, 4))
+    currency: Mapped[str] = mapped_column(String(3))
+    offer_format: Mapped[str] = mapped_column(String(80))
+    source_url: Mapped[str] = mapped_column(String(500))
+    checked_on: Mapped[date] = mapped_column(Date)
+    rate_php_per_unit: Mapped[Decimal | None] = mapped_column(Numeric(16, 8))
+    rate_date: Mapped[date | None] = mapped_column(Date)
+    amount_php_minor: Mapped[int] = mapped_column(BigInteger)
+
+
+class CatalogSubmission(Base):
+    __tablename__ = "catalog_submissions"
+    __table_args__ = (
+        CheckConstraint("kind IN ('book', 'tutorial', 'course', 'documentation', 'tool')", name="ck_catalog_submissions_kind"),
+        CheckConstraint("status IN ('pending', 'approved', 'declined', 'archived')", name="ck_catalog_submissions_status"),
+        CheckConstraint("access_type IN ('free_to_read', 'paid')", name="ck_catalog_submissions_access"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    owner_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    published_book_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("books.id", ondelete="SET NULL"))
+    kind: Mapped[str] = mapped_column(String(20))
+    title: Mapped[str] = mapped_column(String(255))
+    author: Mapped[str] = mapped_column(String(255))
+    category: Mapped[str] = mapped_column(String(80))
+    description: Mapped[str] = mapped_column(Text)
+    source_url: Mapped[str] = mapped_column(String(500))
+    access_type: Mapped[str] = mapped_column(String(20))
+    proof_url: Mapped[str] = mapped_column(String(500))
+    status: Mapped[str] = mapped_column(String(20), server_default="pending", index=True)
+    decline_reason: Mapped[str | None] = mapped_column(String(500))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

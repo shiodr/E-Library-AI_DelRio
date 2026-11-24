@@ -76,7 +76,7 @@ describe('Phase 1 interfaces', () => {
     await user.click(screen.getByRole('button', { name: /continue as guest/i }))
     expect(await screen.findByText('Guest reader')).toBeInTheDocument()
     await user.click(screen.getAllByRole('link', { name: /my library/i })[0])
-    expect(await screen.findByText('Download tracking demonstration')).toBeInTheDocument()
+    expect(await screen.findByText('Download history')).toBeInTheDocument()
     await user.click(screen.getAllByRole('link', { name: /ai assistant/i })[0])
     expect(await screen.findByText(/AI generation is not configured/i)).toBeInTheDocument()
     expect(screen.getByRole('textbox', { name: 'Ask the library' })).toBeEnabled()
@@ -378,22 +378,6 @@ describe('Phase 1 interfaces', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Send question' }))
     await waitFor(() => expect(messages).toHaveLength(2))
     expect(messages[1].conversation_id).toBe('conversation-1')
-  })
-
-  it('records a tracking demonstration and retains its success message through a background profile refresh', async () => {
-    const book = { id: 'free-rust', title: 'The Rust Programming Language', author: 'Rust Project', category: 'Rust', description: 'Learn Rust.', cover_url: null, source_url: 'https://doc.rust-lang.org/book/', license_type: 'Authorized online edition', access_type: 'free_to_read' }
-    let recorded = false
-    handler = (url, options) => {
-      if (url.endsWith('/auth/me')) return json({ ...member, downloads_used: recorded ? 1 : 0 })
-      if (url.endsWith('/books/free-rust')) return json(book)
-      if (url.endsWith('/downloads') && options?.method === 'POST') { recorded = true; return json({ already_downloaded: false, allowance: { used: 1, limit: 10, remaining: 9 } }, 201) }
-      return json(catalog)
-    }
-    open('/app/books/free-rust')
-    await userEvent.click(await screen.findByRole('button', { name: 'Record tracking demonstration' }))
-    expect(await screen.findByRole('status')).toHaveTextContent('No file was downloaded.')
-    expect(screen.getByRole('status')).toHaveTextContent('1 of 10 tracked.')
-    expect(recorded).toBe(true)
   })
 
   it('denies the administrator screen to a normal registered account without requesting admin data', async () => {

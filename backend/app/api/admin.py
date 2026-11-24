@@ -3,17 +3,18 @@
 import uuid
 from datetime import datetime
 from typing import Annotated, Literal
-from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, ConfigDict, Field, field_validator
-from sqlalchemy import and_, func, or_, select, text
+from sqlalchemy import and_, func, or_, select, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session as DBSession
 
 from app.core.database import get_db
 from app.models import Book, Download, User
+from app.models.entities import BookPrice, CatalogSubmission
 from app.schemas.books import BookOutput, BookPage, CategoryOutput
+from app.schemas.offers import PriceInput, PriceOutput, https_listing_url
 from app.services.auth import require_session
 from app.services.library import lock_owner
 
@@ -56,25 +57,7 @@ class BookInput(BaseModel):
     def empty_cover_is_none(cls, value):
         return None if isinstance(value, str) and not value.strip() else value
 
-    @field_validator("cover_url", "source_url")
-    @classmethod
-    def authorized_https_url(cls, value: str | None):
-        if value is None:
-            return value
-        try:
-            parsed = urlsplit(value)
-            valid = (
-                parsed.scheme == "https" and parsed.hostname
-                and parsed.username is None and parsed.password is None
-                and not any(character.isspace() or ord(character) < 32 for character in value)
-            )
-            # Accessing port validates malformed authority values as well.
-            _ = parsed.port
-        except ValueError:
-            valid = False
-        if not valid:
-            raise ValueError("Use an HTTPS URL without embedded credentials.")
-        return value
+    _verify_urls = field_validator("cover_url", "source_url")(https_listing_url)
 
 
 class RecentDownload(BaseModel):
@@ -201,6 +184,8 @@ def edit_book(book_id: uuid.UUID, data: BookInput, db: Database, administrator: 
     catalog_write_lock(db)
     book = managed_book(db, book_id)
     ensure_unique_book(db, data, book_id)
+    if data.access_type != "paid" or data.source_url != book.source_url:
+        book.price = None
     for field, value in data.model_dump().items():
         setattr(book, field, value)
     return commit_book(db, book)
@@ -211,6 +196,7 @@ def archive_book(book_id: uuid.UUID, db: Database, administrator: Administrator)
     catalog_write_lock(db)
     book = managed_book(db, book_id)
     book.is_active = False
+    db.execute(update(CatalogSubmission).where(CatalogSubmission.published_book_id == book.id).values(status="archived"))
     return commit_book(db, book)
 
 
@@ -219,4 +205,29 @@ def restore_book(book_id: uuid.UUID, db: Database, administrator: Administrator)
     catalog_write_lock(db)
     book = managed_book(db, book_id)
     book.is_active = True
+    db.execute(update(CatalogSubmission).where(CatalogSubmission.published_book_id == book.id).values(status="approved"))
     return commit_book(db, book)
+
+
+@router.put("/books/{book_id}/price", response_model=PriceOutput)
+def save_price(book_id: uuid.UUID, data: PriceInput, db: Database, administrator: Administrator):
+    catalog_write_lock(db)
+    book = managed_book(db, book_id)
+    if book.access_type != "paid":
+        raise HTTPException(409, "Only paid books can have a price offer.")
+    if book.price is None:
+        book.price = BookPrice(**data.record())
+    else:
+        for field, value in data.record().items():
+            setattr(book.price, field, value)
+    db.commit()
+    db.refresh(book.price)
+    return book.price
+
+
+@router.delete("/books/{book_id}/price", status_code=204)
+def clear_price(book_id: uuid.UUID, db: Database, administrator: Administrator):
+    catalog_write_lock(db)
+    book = managed_book(db, book_id)
+    book.price = None
+    db.commit()

@@ -9,6 +9,8 @@ import { BookDetail } from './pages/BookDetail'
 import { Assistant } from './pages/Assistant'
 import { Library } from './pages/Library'
 import { Admin } from './pages/Admin'
+import { Submissions } from './pages/Submissions'
+import { SubmissionReview } from './pages/SubmissionReview'
 import { useAuth } from './context/AuthContext'
 import { native } from './lib/api'
 import { useNativeNavigation } from './hooks/useNativeNavigation'
@@ -31,7 +33,11 @@ export default function App() {
       <Route path="library" element={<Library />} />
       <Route path="favorites" element={<Library favorites />} />
       <Route path="assistant" element={<Assistant />} />
-      <Route element={<AdminRoute />}><Route path="admin" element={<Admin />} /></Route>
+      <Route path="submissions" element={<Submissions />} />
+      <Route element={<AdminRoute />}>
+        <Route path="admin" element={<Admin />} />
+        <Route path="admin/submissions" element={<SubmissionReview />} />
+      </Route>
     </Route></Route>
     <Route path="*" element={<div className="empty-state"><h1>This page isn’t in the collection.</h1><Link className="button primary" to="/">Back to home</Link></div>} />
   </Routes>

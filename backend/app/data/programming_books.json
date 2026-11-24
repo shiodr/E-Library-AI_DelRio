@@ -941,9 +941,9 @@
     "description": "Teaches JavaScript programming through language concepts, exercises, and substantial browser and Node.js projects.",
     "source_url": "https://eloquentjavascript.net/",
     "access_type": "free_to_read",
-    "license_type": "Author-hosted free online edition; consult the source for reuse terms. No files hosted.",
+    "license_type": "Eloquent JavaScript, 4th edition, copyright 2024 Marijn Haverbeke. The author’s mobile PDF is available under CC BY-NC 3.0.",
     "verification_url": "https://eloquentjavascript.net/",
-    "verified_on": "2026-11-04"
+    "verified_on": "2026-11-24"
   },
   {
     "title": "JavaScript: The Definitive Guide",

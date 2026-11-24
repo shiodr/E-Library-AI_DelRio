@@ -96,6 +96,7 @@ On Windows use `py -3.13 -m venv backend/.venv`, then
 | `DELETE /api/v1/favorites/{book_id}` | Remove only the caller's favorite; idempotent 204 |
 | `GET /api/v1/downloads` | Caller-scoped history and `{limit,used,remaining}` allowance |
 | `POST /api/v1/downloads` | `{ "book_id": "UUID" }`; record an authorized download request |
+| `POST /api/v1/downloads/{book_id}/file` | Deliver an allowlisted PDF after checking the session and download quota |
 
 Library lists accept `limit` (1–50) and nonnegative `offset`. Guests cannot save
 favorites. Private data never accepts a client-provided user/session owner ID.

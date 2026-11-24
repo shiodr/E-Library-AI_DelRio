@@ -2,6 +2,7 @@ import { ArrowRight, LoaderCircle, Moon, RefreshCw, Sun } from 'lucide-react'
 import { motion } from 'motion/react'
 import { Link } from 'react-router-dom'
 import { useTheme } from '../context/ThemeContext'
+import { originalPrice, priceLabel } from '../lib/prices'
 import type { Book } from '../types'
 
 export function Brand() {
@@ -38,7 +39,10 @@ export function Cover({ book, large = false }: { book: Book; large?: boolean }) 
   </div>
 }
 export function BookCard({ book }: { book: Book }) {
-  const access = book.access_type === 'paid' ? 'Paid publisher listing' : 'Free online edition'
+  const baseAccess = book.access_type === 'paid' ? 'Paid publisher listing' : 'Free online edition'
+  const access = book.access_type === 'paid'
+    ? book.price ? `${priceLabel(book.price)} · ${book.price.offer_format}${book.price.rate_date ? ` · ${originalPrice(book.price)}` : ''}` : `${baseAccess} · Check price at publisher`
+    : baseAccess
   return <Link to={`/app/books/${book.id}`} className="book-card" aria-label={`${book.title} by ${book.author}. ${access}`}>
     <motion.div className="book-card-frame" whileHover={{ y: -6 }} whileTap={{ scale: .985 }} transition={{ duration: .2 }}>
       <Cover book={book} />

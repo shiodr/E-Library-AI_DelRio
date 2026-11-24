@@ -1,10 +1,12 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+from fastapi.responses import FileResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session as DBSession
 
+from app.book_files import book_file
 from app.core.database import get_db
 from app.models import Book, Download, Favorite
 from app.schemas.library import (
@@ -98,3 +100,13 @@ def add_download(data: BookAction, request: Request, response: Response, db: Dat
         already_downloaded=not created,
         allowance=allowance,
     )
+
+
+@router.post("/downloads/{book_id}/file", response_class=FileResponse)
+def download_file(book_id: uuid.UUID, request: Request, db: Database):
+    session = require_session(request, db)
+    _, book, _, _ = record_download(db, session, book_id, require_file=True)
+    path = book_file(book.source_url, book.access_type)
+    if path is None:
+        raise HTTPException(404, "This title has no in-app download.")
+    return FileResponse(path, filename=path.name, media_type="application/pdf")

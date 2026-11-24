@@ -1,10 +1,11 @@
-import { ArrowRight, BookOpen, Compass, Search, Sparkles } from 'lucide-react'
+import { ArrowRight, BookOpen, Search, Sparkles } from 'lucide-react'
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useBooks, useCategories } from '../hooks/useCatalog'
 import { BookCard, BookSkeletons, Cover, ErrorState } from '../components/ui'
+import { CategoryLogo } from '../components/CategoryLogo'
 
 export function Dashboard() {
   const { profile } = useAuth()
@@ -26,7 +27,7 @@ export function Dashboard() {
       <div className="discovery-art" aria-hidden="true"><span className="hero-orbit" />{data?.items.slice(0, 2).map((book, index) => <div key={book.id} className={`hero-book hero-book-${index}`}><Cover book={book} /></div>)}{!data && <BookOpen size={125} strokeWidth={0.7} />}</div>
     </section>
     <section className="category-section"><div className="section-heading"><div><span className="eyebrow">FOLLOW YOUR INTERESTS</span><h2>Browse by category</h2></div><Link to="/app/explore" className="text-link">View all <ArrowRight size={16} /></Link></div>
-      {categories.error ? <ErrorState message={categories.error} retry={categories.retry} /> : <div className="category-grid">{categories.loading ? <span className="skeleton category-skeleton" role="status" aria-label="Loading categories" /> : categories.data?.map((category, index) => <Link key={category.name} to={`/app/explore?category=${encodeURIComponent(category.name)}`} className={`category-card category-${index % 4}`}><span className="category-icon">{index % 2 ? <Compass size={22} /> : <BookOpen size={22} />}</span><div><h3>{category.name}</h3><span>{category.count} {category.count === 1 ? 'book' : 'books'}</span></div><ArrowRight size={17} /></Link>)}</div>}
+      {categories.error ? <ErrorState message={categories.error} retry={categories.retry} /> : <div className="category-grid">{categories.loading ? <span className="skeleton category-skeleton" role="status" aria-label="Loading categories" /> : categories.data?.map(category => <Link key={category.name} to={`/app/explore?category=${encodeURIComponent(category.name)}`} className="category-card"><span className="category-icon"><CategoryLogo name={category.name} /></span><div><h3>{category.name}</h3><span>{category.count} {category.count === 1 ? 'book' : 'books'}</span></div><ArrowRight size={17} /></Link>)}</div>}
     </section>
     <section><div className="section-heading"><div><span className="eyebrow">A PLACE TO START</span><h2>On the reading list</h2></div><Link to="/app/explore" className="text-link">All books <ArrowRight size={16} /></Link></div>{loading ? <BookSkeletons /> : error ? <ErrorState message={error} retry={retry} /> : data?.items.length ? <div className="book-grid">{data.items.map(book => <BookCard key={book.id} book={book} />)}</div> : <div className="empty-inline">No books yet. The library collection is being prepared.</div>}</section>
     <section className="assistant-teaser"><span className="teaser-icon"><Sparkles size={25} /></span><div><span className="eyebrow">A LITTLE HELP FINDING YOUR NEXT READ</span><h3>Find a book with your library assistant.</h3><p>Search the real catalog and ask follow-up questions. AI availability is shown in the chat.</p></div><Link to="/app/assistant" className="button secondary">Open assistant <ArrowRight size={16} /></Link></section>
