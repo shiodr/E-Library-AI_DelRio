@@ -1,5 +1,4 @@
 import { ArrowRight, LoaderCircle, Moon, RefreshCw, Sun } from 'lucide-react'
-import { motion } from 'motion/react'
 import { Link } from 'react-router-dom'
 import { useTheme } from '../context/ThemeContext'
 import { originalPrice, priceLabel } from '../lib/prices'
@@ -26,11 +25,11 @@ export function ErrorState({ message, retry }: { message: string; retry?: () => 
     {retry && <button className="button secondary" onClick={retry}><RefreshCw size={16} /> Try again</button>}
   </div>
 }
-export function Cover({ book, large = false }: { book: Book; large?: boolean }) {
+export function Cover({ book }: { book: Book }) {
   const [title, subtitle] = book.title.split(': ')
   const tone = Array.from(book.title).reduce((sum, char) => sum + char.charCodeAt(0), 0) % 6
-  return <div className={`book-cover cover-${tone} ${large ? 'cover-large' : ''}`} aria-hidden="true">
-    {book.cover_url ? <img src={book.cover_url} alt="" loading="lazy" /> : <>
+  return <div className={`book-cover cover-${tone}`} aria-hidden="true">
+    {book.cover_url ? <img src={book.cover_url} alt="" loading="lazy" decoding="async" /> : <>
       <div className="cover-edition">THE PROGRAMMING COLLECTION</div>
       <div className="cover-title">{title}{subtitle && <small>{subtitle}</small>}</div>
       <div className="cover-art"><span /><span /><span /></div>
@@ -44,12 +43,12 @@ export function BookCard({ book }: { book: Book }) {
     ? book.price ? `${priceLabel(book.price)} · ${book.price.offer_format}${book.price.rate_date ? ` · ${originalPrice(book.price)}` : ''}` : `${baseAccess} · Check price at publisher`
     : baseAccess
   return <Link to={`/app/books/${book.id}`} className="book-card" aria-label={`${book.title} by ${book.author}. ${access}`}>
-    <motion.div className="book-card-frame" whileHover={{ y: -6 }} whileTap={{ scale: .985 }} transition={{ duration: .2 }}>
+    <div className="book-card-frame">
       <Cover book={book} />
       <div className="book-meta"><span className="eyebrow">{book.category}</span><span className="book-card-arrow"><ArrowRight size={15} /></span></div>
       <h3>{book.title}</h3><p>{book.author}</p>
-      <span className="book-access">{access}</span>
-    </motion.div>
+      <span className={book.price ? 'book-access book-access-priced' : 'book-access'}>{access}</span>
+    </div>
   </Link>
 }
 export function BookSkeletons({ count = 4 }: { count?: number }) {

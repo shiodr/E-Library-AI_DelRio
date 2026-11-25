@@ -114,8 +114,6 @@ svg { flex-shrink: 0; }
 .section-heading p { color: var(--muted); font-size: 12px; margin-top: 10px; }
 .book-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px; }
 .book-card { min-width: 0; display: block; }
-.book-card .book-cover { transition: transform .3s, box-shadow .3s; }
-.book-card:hover .book-cover { transform: translateY(-5px) rotate(-1deg); box-shadow: 0 15px 30px #15362c18; }
 .book-cover { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: space-between; isolation: isolate; padding: 20px 16px 18px; aspect-ratio: .76; border-radius: 4px 8px 8px 4px; background: #ded7c1; color: #253f36; overflow: hidden; border-left: 5px solid #0000000c; box-shadow: inset 1px 0 #ffffff33; }
 .book-cover::after { position: absolute; inset: 7px; border: 1px solid currentColor; opacity: .18; border-radius: 1px; content: ""; z-index: -1; }
 .book-cover img { position: absolute; width: 100%; height: 100%; object-fit: cover; inset: 0; }
@@ -279,14 +277,13 @@ svg { flex-shrink: 0; }
 #root > .loading-page { min-height: 100dvh; padding: calc(24px + env(safe-area-inset-top)) 24px calc(24px + env(safe-area-inset-bottom)); }
 .error-state { padding: 25px; border: 1px solid var(--border); background: var(--surface); border-radius: 10px; color: var(--danger); font-size: 12px; margin: 20px 0; }
 .error-state .button { margin-top: 14px; }
-.skeleton { background: linear-gradient(90deg, var(--border), var(--soft), var(--border)); background-size: 200% 100%; animation: shimmer 1.6s linear infinite; border-radius: 7px; }
+.skeleton { background: var(--soft); border-radius: 7px; }
 .skeleton-cover { aspect-ratio: .76; }
 .skeleton-line { height: 12px; width: 90%; margin-top: 15px; }
 .skeleton-line.short { width: 55%; }
 .category-skeleton { height: 70px; grid-column: 1 / -1; }
 .spin { animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
-@keyframes shimmer { to { background-position: -200% 0; } }
 
 @media (min-width: 1500px) {
   .page-content { padding-top: 45px; }

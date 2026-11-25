@@ -341,7 +341,11 @@ test('filters catalog access, sorts verified peso prices and shows their source'
     } })
     expect(price.status()).toBe(200)
 
-    await page.goto('/app/admin')
+    await page.goto(`/app/explore?category=${encodeURIComponent(category)}`)
+    await page.getByLabel('Access', { exact: true }).selectOption('paid')
+    await page.getByLabel('Sort', { exact: true }).selectOption('price_asc')
+    await expect(page.locator('.book-card').first()).toContainText(`A expensive book ${suffix}`)
+    await page.getByRole('link', { name: 'Administration', exact: true }).click()
     await searchManagedBooks(page, lowerTitle)
     await page.getByRole('button', { name: `Set price for ${lowerTitle}`, exact: true }).click()
     await page.getByLabel('Original amount', { exact: true }).fill('19.99')
@@ -352,9 +356,7 @@ test('filters catalog access, sorts verified peso prices and shows their source'
     await page.getByRole('button', { name: 'Save price', exact: true }).click()
     await expect(page.getByRole('heading', { name: `Price for ${lowerTitle}` })).toHaveCount(0)
 
-    await page.goto(`/app/explore?category=${encodeURIComponent(category)}`)
-    await page.getByLabel('Access', { exact: true }).selectOption('paid')
-    await page.getByLabel('Sort', { exact: true }).selectOption('price_asc')
+    await page.goBack()
     await expect(page).toHaveURL(/sort=price_asc/)
     await expect(page.locator('.book-card').first()).toContainText(lowerTitle)
     await page.locator('.book-card').first().click()

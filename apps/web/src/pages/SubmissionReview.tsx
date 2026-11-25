@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { ErrorState, Spinner } from '../components/ui'
-import { useResource } from '../hooks/useCatalog'
+import { invalidateCatalog, useResource } from '../hooks/useCatalog'
 import { post } from '../lib/api'
 import type { AdminSubmission, Page, SubmissionStatus } from '../types'
 import './admin.css'
@@ -24,6 +24,7 @@ export function SubmissionReview() {
     setNotice('')
     try {
       const result = await post<AdminSubmission>(`/admin/submissions/${item.id}/review`, { action, reason })
+      if (item.kind === 'book' && action !== 'decline') invalidateCatalog()
       setNotice(`${result.title} is ${result.status}.`)
       if (offset > 0 && queue.data?.items.length === 1) setOffset(previous => previous - pageSize)
       else queue.retry()

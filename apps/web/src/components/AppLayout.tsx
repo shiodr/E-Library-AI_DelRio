@@ -1,7 +1,7 @@
 import { Compass, Heart, Home, LayoutDashboard, LibraryBig, LogOut, PanelLeftClose, PanelLeftOpen, Sparkles, UserRound } from 'lucide-react'
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { useId, useState } from 'react'
-import { motion } from 'motion/react'
+import { matchPath, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { useState } from 'react'
+import type { CSSProperties } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { Brand, ThemeToggle } from './ui'
 import { native } from '../lib/api'
@@ -13,9 +13,8 @@ const links = [
   { to: '/app/favorites', label: 'Favorites', icon: Heart },
   { to: '/app/assistant', label: 'AI Assistant', icon: Sparkles },
 ]
-function NavigationPill({ id }: { id: string }) {
-  return <motion.i className="nav-glass-pill" layoutId={id} aria-hidden="true"
-    transition={{ type: 'spring', stiffness: 420, damping: 36 }} />
+function NavigationPill({ index }: { index: number }) {
+  return <i className="nav-glass-pill" style={{ '--nav-index': index } as CSSProperties} hidden={index < 0} aria-hidden="true" />
 }
 export function AppLayout() {
   const { profile, logout } = useAuth()
@@ -24,7 +23,9 @@ export function AppLayout() {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
-  const navigationId = useId()
+  const activeTab = links.findIndex(({ to, end }) => matchPath({ path: to, end: end ?? false }, location.pathname))
+  const showAdmin = !native && profile?.user?.role === 'admin'
+  const activeSidebarTab = showAdmin && matchPath({ path: '/app/admin', end: false }, location.pathname) ? links.length : activeTab
   const guest = profile?.session_type === 'guest'
   const section = location.pathname.includes('/explore') ? 'Explore'
     : location.pathname.includes('/library') ? 'My Library'
@@ -44,11 +45,11 @@ export function AppLayout() {
     <a href="#main-content" className="skip-link">Skip to content</a>
     <aside className="sidebar">
       <div className="sidebar-brand-row"><Brand /><button className="icon-button sidebar-toggle" onClick={() => setCollapsed(value => !value)} aria-expanded={!collapsed} aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}>{collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}</button></div><span className="nav-caption">YOUR READING SPACE</span>
-      <nav aria-label="Main navigation">{links.map(({ to, label, icon: Icon, end }) =>
+      <nav aria-label="Main navigation"><NavigationPill index={activeSidebarTab} />{links.map(({ to, label, icon: Icon, end }) =>
         <NavLink key={to} to={to} end={end} aria-label={label} className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-          {({ isActive }) => <>{isActive && <NavigationPill id={`${navigationId}-sidebar`} />}<Icon size={20} /><span>{label}</span></>}
-        </NavLink>)}{!native && profile?.user?.role === 'admin' && <NavLink to="/app/admin" aria-label="Administration" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-          {({ isActive }) => <>{isActive && <NavigationPill id={`${navigationId}-sidebar`} />}<LayoutDashboard size={20} /><span>Administration</span></>}
+          <Icon size={20} /><span>{label}</span>
+        </NavLink>)}{showAdmin && <NavLink to="/app/admin" aria-label="Administration" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
+          <LayoutDashboard size={20} /><span>Administration</span>
         </NavLink>}</nav>
       <div className="sidebar-bottom">
         <div className="reading-note"><span className="note-dot" /><p>A little reading.<br />A little more possibility.</p></div>
@@ -70,13 +71,13 @@ export function AppLayout() {
         <span className="guest-allowance">{profile?.downloads_remaining ?? 5} download slots remaining</span>
         <NavLink to="/register">Create your free account <span aria-hidden="true">↗</span></NavLink>
       </div>}
-      {!native && profile?.user?.role === 'admin' && <div className="admin-access"><NavLink className="text-link" to="/app/admin">Administration</NavLink></div>}
-      <motion.main id="main-content" className="page-content" tabIndex={-1} key={location.pathname} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .18, ease: [0.22, 1, 0.36, 1] }}><Outlet /></motion.main>
+      {showAdmin && <div className="admin-access"><NavLink className="text-link" to="/app/admin">Administration</NavLink></div>}
+      <main id="main-content" className="page-content" tabIndex={-1}><Outlet key={location.pathname} /></main>
       <footer className="app-footer"><span>A new chapter starts with curiosity.</span><span>Created by shio del rio · E-Library AI</span></footer>
     </div>
-    <nav className="mobile-nav" aria-label="Mobile navigation">{links.map(({ to, label, icon: Icon, end }) =>
+    <nav className="mobile-nav" aria-label="Mobile navigation"><NavigationPill index={activeTab} />{links.map(({ to, label, icon: Icon, end }) =>
       <NavLink key={to} to={to} end={end} className={({ isActive }) => isActive ? 'active' : ''}>
-        {({ isActive }) => <>{isActive && <NavigationPill id={`${navigationId}-mobile`} />}<Icon size={20} /><span>{label === 'Explore books' ? 'Explore' : label === 'AI Assistant' ? 'Assistant' : label}</span></>}
+        <Icon size={20} /><span>{label === 'Explore books' ? 'Explore' : label === 'AI Assistant' ? 'Assistant' : label}</span>
       </NavLink>
     )}</nav>
     {!location.pathname.includes('/assistant') && <NavLink to="/app/assistant" className="assistant-launcher" aria-label="Open AI Assistant"><Sparkles size={19} /><span>Ask the library</span></NavLink>}

@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom'
 import { priceLabel } from '../lib/prices'
 import { PriceEditor } from './PriceEditor'
 import { ErrorState, Spinner } from '../components/ui'
-import { useResource } from '../hooks/useCatalog'
+import { invalidateCatalog, useResource } from '../hooks/useCatalog'
 import { api, post } from '../lib/api'
 import type { Book, BookPage, Category } from '../types'
 import './admin.css'
@@ -90,7 +90,7 @@ export function Admin() {
     }
   }, [confirmation])
 
-  function refresh() { overview.retry(); books.retry() }
+  function refresh() { invalidateCatalog(); overview.retry(); books.retry() }
 
   function openForm(book: Book | null) {
     if (writing.current) return

@@ -13,6 +13,13 @@ test('guest routes survive feature denials and recover a genuinely ended session
   const nav = navigation(page, info)
   await nav.getByRole('link', { name: /explore/i }).click()
   await expect(page.locator('.book-card')).toHaveCount(12)
+  await expect(page.locator('.book-card-frame').first()).toHaveCSS('backdrop-filter', 'none')
+  const marker = nav.locator('.nav-glass-pill')
+  await expect(marker).toHaveCount(1)
+  await expect.poll(async () => {
+    const [box, selected] = await Promise.all([marker.boundingBox(), nav.locator('[aria-current="page"]').boundingBox()])
+    return box && selected ? Math.abs(box.x - selected.x) + Math.abs(box.y - selected.y) : Infinity
+  }).toBeLessThan(2)
   await page.locator('.book-card').first().click()
   await expect(page.locator('.book-detail')).toBeVisible()
   await nav.getByRole('link', { name: /favorites/i }).click()

@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, render, screen, waitFor, within } from '@testing-library/react'
+import { act, render, renderHook, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
-import { MotionConfig } from 'motion/react'
 import App from './App'
 import { AuthProvider } from './context/AuthContext'
 import { ThemeProvider } from './context/ThemeContext'
 import * as apiModule from './lib/api'
+import { invalidateCatalog, useResource } from './hooks/useCatalog'
 
 const guest = { session_type: 'guest', user: null, expires_at: '2099-01-01T00:00:00Z', planned_download_limit: 5, access_token: null }
 const member = { ...guest, session_type: 'user', planned_download_limit: 10, user: { id: '1', full_name: 'Alex Reader', email: 'alex@example.com', role: 'reader' } }
@@ -14,11 +14,12 @@ const catalog = { items: [], total: 0, limit: 12, offset: 0 }
 let handler: (url: string, options?: RequestInit) => Response
 function json(value: unknown, status = 200) { return new Response(JSON.stringify(value), { status, headers: { 'Content-Type': 'application/json' } }) }
 beforeEach(() => {
+  invalidateCatalog()
   handler = url => url.endsWith('/auth/me') ? json({ detail: 'Sign in required.' }, 401) : url.endsWith('/categories') ? json([]) : json(catalog)
   vi.stubGlobal('fetch', vi.fn((url: string, options?: RequestInit) => Promise.resolve(handler(url, options))))
 })
 function open(path = '/') {
-  return render(<MemoryRouter initialEntries={[path]}><MotionConfig reducedMotion="always"><ThemeProvider><AuthProvider><App /></AuthProvider></ThemeProvider></MotionConfig></MemoryRouter>)
+  return render(<MemoryRouter initialEntries={[path]}><ThemeProvider><AuthProvider><App /></AuthProvider></ThemeProvider></MemoryRouter>)
 }
 
 describe('Phase 1 interfaces', () => {
@@ -99,23 +100,70 @@ describe('Phase 1 interfaces', () => {
     const user = userEvent.setup()
     open('/app')
     await screen.findByText('Guest reader')
-    const sidebar = within(screen.getByRole('navigation', { name: 'Main navigation' }))
-    const mobile = within(screen.getByRole('navigation', { name: 'Mobile navigation' }))
+    const sidebarNav = screen.getByRole('navigation', { name: 'Main navigation' })
+    const mobileNav = screen.getByRole('navigation', { name: 'Mobile navigation' })
+    const sidebar = within(sidebarNav)
+    const markers = [sidebarNav, mobileNav].map(nav => nav.querySelector('.nav-glass-pill'))
     const favorites = sidebar.getByRole('link', { name: 'Favorites' })
     favorites.focus()
     await user.keyboard('{Enter}')
     await screen.findByRole('heading', { name: /Favorites\s*\./ })
     expect(favorites).toHaveFocus()
-    for (const navigation of [sidebar, mobile]) {
+    for (const [index, nav] of [sidebarNav, mobileNav].entries()) {
+      const navigation = within(nav)
       const selected = navigation.getByRole('link', { name: 'Favorites' })
       expect(selected).toHaveAttribute('aria-current', 'page')
-      expect(selected.querySelector('.nav-glass-pill')).toHaveAttribute('aria-hidden', 'true')
+      const pills = nav.querySelectorAll<HTMLElement>('.nav-glass-pill')
+      expect(pills).toHaveLength(1)
+      expect(pills[0]).toBe(markers[index])
+      expect(pills[0]).toHaveAttribute('aria-hidden', 'true')
+      expect(pills[0].style.getPropertyValue('--nav-index')).toBe('3')
       expect(navigation.getByRole('link', { name: 'Overview' })).not.toHaveAttribute('aria-current')
     }
     await user.tab()
     expect(sidebar.getByRole('link', { name: 'AI Assistant' })).toHaveFocus()
     await user.click(screen.getByRole('button', { name: 'Collapse sidebar' }))
     expect(sidebar.getByRole('link', { name: 'Favorites' })).toHaveAttribute('aria-current', 'page')
+  })
+
+  it('reuses Explore results and categories when returning from another tab', async () => {
+    handler = url => url.endsWith('/auth/me') ? json(guest) : url.endsWith('/categories') ? json([]) : json(catalog)
+    const user = userEvent.setup()
+    open('/app/explore')
+    await screen.findByText('0 books to discover')
+    const catalogRequests = () => vi.mocked(fetch).mock.calls.filter(([url]) => /\/(books\?|categories$)/.test(String(url)))
+    expect(catalogRequests()).toHaveLength(2)
+    const nav = within(screen.getByRole('navigation', { name: 'Main navigation' }))
+    await user.click(nav.getByRole('link', { name: 'Favorites' }))
+    await user.click(nav.getByRole('link', { name: 'Explore books' }))
+    expect(screen.getByText('0 books to discover')).toBeInTheDocument()
+    expect(catalogRequests()).toHaveLength(2)
+  })
+
+  it('expires public results and bypasses cached responses after retry and invalidation', async () => {
+    const time = vi.spyOn(Date, 'now').mockReturnValue(10_000)
+    try {
+      let reads = 0
+      handler = () => json({ total: ++reads })
+      const load = () => renderHook(() => useResource<{ total: number }>('/books?limit=1'))
+      const first = load()
+      await waitFor(() => expect(first.result.current.data?.total).toBe(1))
+      first.unmount()
+      const cached = load()
+      expect(cached.result.current.data?.total).toBe(1)
+      act(() => cached.result.current.retry())
+      await waitFor(() => expect(cached.result.current.data?.total).toBe(2))
+      cached.unmount()
+      time.mockReturnValue(40_001)
+      const expired = load()
+      await waitFor(() => expect(expired.result.current.data?.total).toBe(3))
+      expired.unmount()
+      invalidateCatalog()
+      const invalidated = load()
+      await waitFor(() => expect(invalidated.result.current.data?.total).toBe(4))
+    } finally {
+      time.mockRestore()
+    }
   })
 
   it.each([401, 403])('keeps guest navigation available after a feature responds with %i', async status => {

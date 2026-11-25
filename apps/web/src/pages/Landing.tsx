@@ -2,7 +2,6 @@ import { ArrowRight, BookOpen, Compass, Layers3, Search, ShieldCheck, Smartphone
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useState } from 'react'
 import type { FormEvent } from 'react'
-import { motion } from 'motion/react'
 import { useAuth } from '../context/AuthContext'
 import { useBooks, useCategories } from '../hooks/useCatalog'
 import { native } from '../lib/api'
@@ -10,7 +9,17 @@ import { BookCard, BookSkeletons, Brand, Cover, ErrorState, LoadingPage, Spinner
 import { CategoryLogo } from '../components/CategoryLogo'
 
 export function Landing() {
-  const { guest, profile, loading: checkingSession, connectionError, refresh } = useAuth()
+  const { profile, loading, connectionError, refresh } = useAuth()
+  if (native) {
+    if (loading) return <LoadingPage />
+    if (connectionError) return <ErrorState message={connectionError} retry={() => void refresh()} />
+    if (profile) return <Navigate to="/app" replace />
+  }
+  return <LandingContent />
+}
+
+function LandingContent() {
+  const { guest, profile } = useAuth()
   const { data, loading, error, retry } = useBooks('limit=4')
   const categories = useCategories()
   const [busy, setBusy] = useState(false)
@@ -28,11 +37,6 @@ export function Landing() {
     event.preventDefault()
     navigate(`/app/explore?q=${encodeURIComponent(query.trim())}`)
   }
-  if (native) {
-    if (checkingSession) return <LoadingPage />
-    if (connectionError) return <ErrorState message={connectionError} retry={() => void refresh()} />
-    if (profile) return <Navigate to="/app" replace />
-  }
   return <div className="landing">
     <a href="#main-content" className="skip-link">Skip to content</a>
     <header className="landing-header"><Brand /><nav aria-label="Welcome navigation">
@@ -42,7 +46,7 @@ export function Landing() {
     </nav></header>
     <main id="main-content">
       <section className="landing-hero">
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="hero-copy">
+        <div className="hero-copy">
           <span className="pill"><span className="status-dot" />A space for curious minds</span>
           <h1>Your next chapter<br />starts <em>here.</em></h1>
           <p>Rust first. Practical programming. Better software.<br className="desktop-break" /> Build your skills, one book at a time.</p>
@@ -56,7 +60,7 @@ export function Landing() {
           </div>
           {guestError && <p className="form-error" role="alert">{guestError}</p>}
           <div className="hero-assurance"><ShieldCheck size={15} />Free to explore. Built for learning.</div>
-        </motion.div>
+        </div>
         <div className="hero-visual" aria-label="A preview of our programming book collection">
           <div className="visual-ring ring-one" /><div className="visual-ring ring-two" />
           {data?.items.slice(0, 3).map((book, index) => <div className={`floating-book floating-${index}`} key={book.id}><Cover book={book} /></div>)}
@@ -65,16 +69,16 @@ export function Landing() {
           <span className="visual-caption">ONE GOOD BOOK CAN CHANGE YOUR PERSPECTIVE.</span>
         </div>
       </section>
-      <motion.section className="benefits" aria-label="Platform benefits" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: .12 }}>
+      <section className="benefits" aria-label="Platform benefits">
         <div><BookOpen size={22} /><span><strong>Programming worth your time</strong><small>Author editions and official publisher listings</small></span></div>
         <div><Smartphone size={22} /><span><strong>Your library, anywhere</strong><small>One account for web and Android</small></span></div>
         <div><Layers3 size={22} /><span><strong>Rust at the center</strong><small>Python, JavaScript, Go, C++, and more</small></span></div>
-      </motion.section>
-      <motion.section id="collection" className="landing-collection" initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: .18 }}>
+      </section>
+      <section id="collection" className="landing-collection">
         <div className="section-heading"><div><span className="eyebrow">THE PROGRAMMING COLLECTION</span><h2>Build something worth reading about.</h2><p>Rust leads the collection, alongside other programming languages and software engineering.</p></div><Link to="/app/explore" className="text-link">Explore the collection <ArrowRight size={17} /></Link></div>
         {loading ? <BookSkeletons /> : error ? <ErrorState message={error} retry={retry} /> : data && data.items.length > 0 ? <div className="book-grid">{data.items.map(book => <BookCard key={book.id} book={book} />)}</div> : <p className="muted">The collection is being prepared. Check back soon.</p>}
         <p className="collection-disclosure">{data ? `${data.total} programming titles` : 'Programming books'} · Free online editions and paid publisher listings are labeled separately.</p>
-      </motion.section>
+      </section>
       <section className="landing-cta"><span className="eyebrow">MAKE SPACE FOR SOMETHING NEW</span><h2>Every great idea starts<br />with a little curiosity.</h2><Link to="/register" className="button primary">Start your next chapter <ArrowRight size={18} /></Link></section>
     </main>
     <footer className="landing-footer"><Brand /><span>Made for learning. Built with curiosity.</span><span>Created by shio del rio · IPT102 · Phase 1 · 2026</span></footer>

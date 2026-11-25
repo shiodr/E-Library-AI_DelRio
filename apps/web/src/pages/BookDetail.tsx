@@ -42,7 +42,7 @@ export function BookDetail() {
   return <>
     <Link to="/app/explore" className="back-link"><ArrowLeft size={17} />Back to collection</Link>
     <article className="book-detail">
-      <div className="detail-presentation"><div className="detail-cover"><Cover book={book} large /></div><span className="detail-format">{paid ? 'Official publisher listing' : 'Authorized online edition'}</span></div>
+      <div className="detail-presentation"><div className="detail-cover"><Cover book={book} /></div><span className="detail-format">{paid ? 'Official publisher listing' : 'Authorized online edition'}</span></div>
       <div className="detail-information">
         <span className="pill">{book.category}</span>
         <h1>{book.title}</h1><p className="detail-author">by {book.author}</p>

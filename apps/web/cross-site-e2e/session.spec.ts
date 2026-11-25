@@ -76,9 +76,11 @@ test.beforeEach(async ({ page, context }) => {
 
 async function openPrivateSections(page: Page) {
   const nav = page.getByRole('navigation', { name: 'Main navigation' })
+  const history = page.waitForResponse(response => response.url().startsWith(`${backend}/api/v1/downloads?`))
   await nav.getByRole('link', { name: 'My Library', exact: true }).click()
   await expect(page.getByRole('heading', { name: /My Library/ })).toBeVisible()
-  await expect(page.getByText('Download tracking demonstration', { exact: true })).toBeVisible()
+  await expect(page.getByText('Download history', { exact: true })).toBeVisible()
+  expect((await history).status()).toBe(200)
   await nav.getByRole('link', { name: 'AI Assistant', exact: true }).click()
   await expect(page.getByLabel('Ask the library', { exact: true })).toBeEnabled()
   await page.reload()
